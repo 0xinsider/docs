@@ -122,6 +122,9 @@
     }
   },
   "openapi": "/api-reference/openapi.json",
+  "chat": {
+    "enabled": false
+  },
   "footer": {
     "socials": {
       "x": "https://x.com/0xinsiderdotcom",
