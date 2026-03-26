@@ -6,7 +6,7 @@
   --tw-bg-opacity: 1 !important;
 }
 
-/* Primary button (e.g. "Get API Key") — black bg, white text in light mode */
+/* Base primary colors for light mode */
 :root {
   --primary: #000000;
   --primary-light: #000000;
@@ -14,34 +14,21 @@
   --primary-foreground: #ffffff;
 }
 
-/* Dark mode: white button needs black text */
-.dark [class*="Button"],
-.dark [class*="button"],
-.dark a[class*="primary"],
-.dark button[class*="primary"] {
-  color: #000000 !important;
+/* Fix: Mintlify uses dark:text-primary-light for active states in dark mode,
+   which resolves to the light-mode color (#000000) — invisible on dark bg.
+   Override so active sidebar links, TOC items, and headers are visible. */
+.dark {
+  --primary-light: #ffffff;
 }
 
-/* Light mode: black button needs white text */
-:root [class*="Button"],
-:root [class*="button"],
-a[class*="primary"],
-button[class*="primary"] {
+/* Sidebar active state — ensure children inherit white text in dark mode */
+.dark [data-active="true"],
+.dark [data-active="true"] a {
   color: #ffffff !important;
 }
 
-/* Sidebar active state — monochrome */
-.dark [class*="active"],
-.dark [aria-current="page"],
-.dark [data-active="true"] {
-  background-color: rgba(255, 255, 255, 0.1) !important;
-  color: #ffffff !important;
-}
-
-[class*="active"],
-[aria-current="page"],
-[data-active="true"] {
-  background-color: rgba(0, 0, 0, 0.05) !important;
+[data-active="true"],
+[data-active="true"] a {
   color: #000000 !important;
 }
 
@@ -108,11 +95,6 @@ button[class*="primary"] {
 [class*="try-it"] {
   background-color: #000000 !important;
   color: #ffffff !important;
-}
-
-/* Accent/link colors → monochrome */
-.dark a:not([class*="Button"]):not([class*="button"]) {
-  color: #ffffff;
 }
 
 /* Tab active indicators */
