@@ -1,0 +1,129 @@
+/* Monochrome theme overrides — both light and dark mode */
+
+/* GET/POST/PUT/DELETE method badges → monochrome */
+[class*="badge"],
+[data-testid*="badge"] {
+  --tw-bg-opacity: 1 !important;
+}
+
+/* Primary button (e.g. "Get API Key") — black bg, white text in light mode */
+:root {
+  --primary: #000000;
+  --primary-light: #000000;
+  --primary-dark: #ffffff;
+  --primary-foreground: #ffffff;
+}
+
+/* Dark mode: white button needs black text */
+.dark [class*="Button"],
+.dark [class*="button"],
+.dark a[class*="primary"],
+.dark button[class*="primary"] {
+  color: #000000 !important;
+}
+
+/* Light mode: black button needs white text */
+:root [class*="Button"],
+:root [class*="button"],
+a[class*="primary"],
+button[class*="primary"] {
+  color: #ffffff !important;
+}
+
+/* Sidebar active state — monochrome */
+.dark [class*="active"],
+.dark [aria-current="page"],
+.dark [data-active="true"] {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+}
+
+[class*="active"],
+[aria-current="page"],
+[data-active="true"] {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+  color: #000000 !important;
+}
+
+/* Override green GET badges to monochrome */
+.dark [class*="GET"],
+.dark [class*="get"] {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
+}
+
+[class*="GET"],
+[class*="get"] {
+  background-color: rgba(0, 0, 0, 0.08) !important;
+  color: #000000 !important;
+}
+
+/* POST badges */
+.dark [class*="POST"],
+.dark [class*="post"] {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
+}
+
+[class*="POST"],
+[class*="post"] {
+  background-color: rgba(0, 0, 0, 0.08) !important;
+  color: #000000 !important;
+}
+
+/* PUT badges */
+.dark [class*="PUT"],
+.dark [class*="put"] {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
+}
+
+[class*="PUT"],
+[class*="put"] {
+  background-color: rgba(0, 0, 0, 0.08) !important;
+  color: #000000 !important;
+}
+
+/* DELETE badges */
+.dark [class*="DELETE"],
+.dark [class*="delete"] {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
+}
+
+[class*="DELETE"],
+[class*="delete"] {
+  background-color: rgba(0, 0, 0, 0.08) !important;
+  color: #000000 !important;
+}
+
+/* "Try it" button — monochrome */
+.dark [class*="playground"] button,
+.dark [class*="try-it"] {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+[class*="playground"] button,
+[class*="try-it"] {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+/* Accent/link colors → monochrome */
+.dark a:not([class*="Button"]):not([class*="button"]) {
+  color: #ffffff;
+}
+
+/* Tab active indicators */
+.dark [role="tab"][aria-selected="true"],
+.dark [role="tab"][data-state="active"] {
+  border-color: #ffffff !important;
+  color: #ffffff !important;
+}
+
+[role="tab"][aria-selected="true"],
+[role="tab"][data-state="active"] {
+  border-color: #000000 !important;
+  color: #000000 !important;
+}
