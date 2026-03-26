@@ -3,9 +3,9 @@
   "theme": "mint",
   "name": "0xinsider API",
   "colors": {
-    "primary": "#0ac5b3",
-    "light": "#0ac5b3",
-    "dark": "#0ac5b3"
+    "primary": "#000000",
+    "light": "#000000",
+    "dark": "#ffffff"
   },
   "favicon": "/favicon.svg",
   "navigation": {
