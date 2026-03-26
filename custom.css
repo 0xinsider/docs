@@ -38,6 +38,7 @@ nav a {
 
 /* Navbar button: dark mode has white pill, so text/icon must be black */
 .dark .bg-primary-dark ~ * .text-white,
+.dark .bg-primary-dark ~ * svg,
 .dark .bg-primary-dark ~ svg {
   color: #000000 !important;
 }
