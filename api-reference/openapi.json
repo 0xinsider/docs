@@ -9242,6 +9242,23 @@
           }
         }
       },
+      "PickTrust": {
+        "type": "object",
+        "description": "Field-level trust metadata for the full Pick of the Day payload. Present on the full shape only (omitted on the teaser and the no-pick state, because whether a specialist backs the pick is itself backed-side evidence). Unlike TraderTrust it is not gated behind expand=trust: it carries one member on an endpoint that returns a single object per day.",
+        "required": [
+          "qualifying_expert"
+        ],
+        "properties": {
+          "qualifying_expert": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TrustMetadata"
+              }
+            ],
+            "description": "Provenance of the frozen qualifying category expert, which has three states where the qualifying_expert field alone can express only two. source.kind=database with reconciliation.status=db_mirror means the evidence deserialized and is being served. freshness.status is always not_live, never fresh: this evidence is frozen at selection and never refreshed, so on an archived pick the as_of (the expert's own stats_computed_at) can be days or months old by design. source.kind=computed with reconciliation.status=not_applicable means no expert was recorded: nobody qualified on the backed side, the pick predates the field, or a manual off-slate takeover cleared it \u2014 a real negative. source.kind=unavailable means the row HAS frozen evidence that does not deserialize into the published shape: a contract defect, NOT a negative, and the pick's selection rank was decided by evidence this response cannot describe. Do not read an omitted qualifying_expert as 'no specialist' without checking this field. Note the exact claim: this reports whether the payload matched the published SHAPE, not whether it still satisfies the selection gates."
+          }
+        }
+      },
       "TraderTrust": {
         "type": "object",
         "description": "Field-level trust metadata returned only when GET /api/v1/trader/{address} includes expand=trust.",
@@ -10101,6 +10118,10 @@
             "type": "string",
             "description": "Market category (e.g. \"Soccer\")."
           },
+          "display_category": {
+            "type": "string",
+            "description": "Frozen public presentation category. For supported Polymarket sports this is the exact verified official event league (e.g. \"WNBA\" or \"UFC\"); otherwise it equals category. Additive and optional for mixed-version client compatibility."
+          },
           "platform": {
             "type": "string",
             "description": "Provider platform (e.g. \"polymarket\")."
@@ -10237,6 +10258,59 @@
             "type": "number",
             "nullable": true,
             "description": "Backed-side graded dollars the confidence is measured against (its denominator)."
+          },
+          "qualifying_expert": {
+            "type": "object",
+            "nullable": true,
+            "description": "The qualifying category expert whose sport-specific record and real position earned this pick its top selection tier: a candidate backed by one outranks every candidate without one. Present only on the full payload. Omitted when no wallet qualified on the backed side, on picks generated before the field existed, and on the first-party web teaser, which withholds all backed-side evidence. Frozen at SELECTION time \u2014 the wallet's position can move before the pick renders.",
+            "properties": {
+              "address": {
+                "type": "string",
+                "description": "Wallet address of the qualifying expert."
+              },
+              "name": {
+                "type": "string",
+                "nullable": true,
+                "description": "Provider display name, or null for an unnamed wallet."
+              },
+              "grade": {
+                "type": "string",
+                "nullable": true,
+                "description": "0xinsider grade letter. Always S or A: Pick of the Day only counts S/A wallets as proven."
+              },
+              "canonical_category": {
+                "type": "string",
+                "description": "The canonical sport bucket the win rate was measured over (for example Basketball). Can be BROADER than the pick's display_category, which names an exact league such as NBA \u2014 label the rate with this field, never with display_category."
+              },
+              "win_rate": {
+                "type": "number",
+                "description": "Share of this wallet's resolved markets in canonical_category whose realized P&L came out positive, as a 0..1 fraction. Above 0.60 by construction. Deliberately NOT phrased as \"closed profitable\": the metric counts realized P&L above zero, so a resolved winner the wallet never redeemed sits at zero and counts against it."
+              },
+              "n_resolved": {
+                "type": "integer",
+                "description": "Resolved markets in canonical_category behind win_rate. At least 10 by construction."
+              },
+              "position_usd": {
+                "type": "number",
+                "description": "Polymarket's own currentValue for this wallet on the backed outcome, in USD, as of selection. At least 1000 by construction."
+              },
+              "stats_computed_at": {
+                "type": "string",
+                "format": "date-time",
+                "description": "When the category read model behind win_rate was last rebuilt."
+              }
+            },
+            "required": [
+              "address",
+              "canonical_category",
+              "win_rate",
+              "n_resolved",
+              "position_usd",
+              "stats_computed_at"
+            ]
+          },
+          "trust": {
+            "$ref": "#/components/schemas/PickTrust"
           },
           "traders": {
             "type": "integer",

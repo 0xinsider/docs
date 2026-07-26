@@ -7,6 +7,18 @@ rss: true
 
 This changelog tracks externally visible REST API changes only. Documentation-only edits are intentionally excluded.
 
+<Update label="July 26, 2026" description="Pick of the Day reports whether its category-specialist evidence is trustworthy">
+  [`GET /api/v1/pick-of-the-day`](/api-reference/endpoint/get-pick-of-the-day) adds `trust`, a full-only object carrying field-level provenance in the same vocabulary the trader endpoint uses.
+
+  It exists because `qualifying_expert` has three real states and only two serializations. That field is omitted when no wallet qualified on the backed side, when the pick predates the field, and when the stored evidence is malformed - so an absent `qualifying_expert` could not be read as "no specialist backed this pick" with any confidence. `trust.qualifying_expert` says which case applies: `source.kind: "database"` with `reconciliation.status: "db_mirror"` means the evidence is present and being served; `source.kind: "computed"` with `reconciliation.status: "not_applicable"` means no specialist was recorded, a real negative; `source.kind: "unavailable"` means the pick carries specialist evidence that does not match the published shape. The distinction matters because the specialist tier is the outermost selection rank key, so a pick whose evidence is unreadable still reached the top of the slate on the strength of it.
+
+  `freshness.status` is always `not_live`, never `fresh`: this evidence is frozen when the pick is composed and is never refreshed, so `freshness.as_of` - the expert's own `stats_computed_at` - is legitimately old on an archived pick. The object reports whether the stored payload matched the published shape; it does not re-check the selection thresholds behind that payload.
+
+  `trust` is omitted on the first-party web teaser and on the no-pick state, since whether a specialist backs the pick is itself backed-side evidence. Additive and optional: existing clients are unaffected.
+
+  This release also documents two Pick of the Day fields that were already live but missing from this specification: `qualifying_expert` and `display_category`.
+</Update>
+
 <Update label="July 14, 2026" description="Observation-only wider-holder and in-play sports cohorts">
   Added [`GET /api/v1/sports-edge-observations`](/api-reference/endpoint/get-sports-edge-observations), an Insider-tier evidence endpoint for sports opportunities that do not enter the funded Sports Edge slate.
 
