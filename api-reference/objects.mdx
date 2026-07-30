@@ -412,7 +412,7 @@ One outcome token's bucketed candle series.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `state` | `full` | Yes | Always 'full' for an authenticated Insider key. |
+| `state` | `full` | Yes | Always 'full' for an authenticated Pro key. |
 | `pick_date` | string | Yes | The pick's local publication date (YYYY-MM-DD). |
 | `matchup` | string | Yes | Human-readable matchup (e.g. "Portugal vs. Uzbekistan"). |
 | `category` | string | Yes | Market category (e.g. "Soccer"). |
@@ -470,7 +470,7 @@ One outcome token's bucketed candle series.
 | `matchup` | string | Yes | Human-readable matchup (e.g. "Portugal vs. Uzbekistan"). |
 | `category` | string | Yes | Market category (e.g. "Soccer"). |
 | `image_url` | string | No | Provider (Polymarket Gamma) market thumbnail URL (markets.image); omitted (not null) when the market has no image. Public regardless of the backed-side gate, so present for pending rows too. |
-| `pick_outcome_label` | string \| null | No | The backed side's outcome label. Omitted for a still-pending pick when the request is not from an authenticated Insider key. |
+| `pick_outcome_label` | string \| null | No | The backed side's outcome label. Omitted for a still-pending pick when the request is not from an authenticated Pro key. |
 | `top_grade` | string \| null | No | Best grade among the proven smart-money holders on the backed side (S, A, B, C, D, F). |
 | `outcome` | `pending` \| `win` \| `loss` \| `void` | Yes | Settlement outcome of the backed side; 'pending' until the market resolves. |
 | `outcome_display` | string | No | Pre-formatted settlement status for display: "Win" / "Loss" / "Void" / "Pending" -- the outcome enum above as a label, from the same formatter the pick payload's outcome_display uses. Convenience only; outcome is the source value. |
@@ -995,7 +995,7 @@ Owner-scoped view of one webhook delivery attempt. Deliberately omits the reques
 
 ## WebhookEventDescriptor
 
-Self-describing entry in the webhook event catalog: the event type a subscriber lists in event_types, when it fires, the data payload shape, and whether it currently fires (active) or is reserved (dormant, subscribable but not yet delivered). Insider-only event types (wallet_grade_changed, insider_radar_flag_raised, smart_money_flow_detected) only deliver to API keys on an active Insider subscription.
+Self-describing entry in the webhook event catalog: the event type a subscriber lists in event_types, when it fires, the data payload shape, and whether it currently fires (active) or is reserved (dormant, subscribable but not yet delivered). Pro-only event types (wallet_grade_changed, insider_radar_flag_raised, smart_money_flow_detected) only deliver to API keys on an active Pro subscription.
 
 | Field | Type | Required | Description |
 |---|---|---|---|

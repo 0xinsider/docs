@@ -10,7 +10,7 @@ The full Pick of the Day track record: every published pick with its real outcom
 - `hit_rate.net_profit_usd`, `staked_usd`, and `roi_pct` model a flat $100-per-pick strategy over resolved, priced picks.
 - `hit_rate.series` is the cumulative curve, one point per decided pick in ascending date order, ready to chart. Its last point equals the headline `net_profit_usd` and `pct` by construction.
 
-Resolved picks are the public record. A still-pending pick's backed side (`pick_outcome_label`) is included because the API key already proves Insider tier.
+Resolved picks are the public record. A still-pending pick's backed side (`pick_outcome_label`) is included because the API key already proves Pro tier.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
