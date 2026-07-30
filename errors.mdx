@@ -61,7 +61,7 @@ async function call(path, opts = {}) {
       return call(path, opts);
     }
     if (code === "subscription_required") {
-      throw new Error("Insider subscription required");
+      throw new Error("Pro subscription required");
     }
     throw new Error(`${code}: ${message}${param ? ` (param=${param})` : ""}`);
   }
@@ -89,7 +89,7 @@ def call(path, **params):
         time.sleep(int(r.headers.get("Retry-After", "1")))
         return call(path, **params)
     if code == "subscription_required":
-        raise RuntimeError("Insider subscription required")
+        raise RuntimeError("Pro subscription required")
     raise RuntimeError(f"{code}: {body['error']['message']}")
 ```
 </CodeGroup>
