@@ -2370,7 +2370,7 @@
           {
             "name": "strategy",
             "in": "query",
-            "description": "Filter by ML-detected strategy type. Values come from backend/src/trader_analysis/classification/decision_tree.rs and are matched exactly against trader_classifications.primary_type. Unknown values currently match zero rows; the handler does not return HTTP 400.",
+            "description": "Filter by ML-detected strategy type. Values come from backend/crates/analytics/src/trader_analysis/classification/decision_tree.rs and are matched exactly against ml_trader_category.primary_type. Unknown values currently match zero rows; the handler does not return HTTP 400.",
             "schema": {
               "type": "string",
               "enum": [
