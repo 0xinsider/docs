@@ -10307,7 +10307,12 @@
           },
           "signal_score": {
             "type": "number",
-            "description": "0.0\u20131.0 normalized signal score."
+            "description": "Current 0.0\u20131.0 normalized signal score. This value can change as scoring context changes."
+          },
+          "recorded_signal_score": {
+            "type": "number",
+            "nullable": true,
+            "description": "Immutable 0.0\u20131.0 signal score captured when the trade row was recorded. Available for new rows after this field launched; legacy rows return null."
           },
           "trader": {
             "type": "object",
@@ -12270,6 +12275,7 @@
           "board_upcoming_configured",
           "board_upcoming_available",
           "board_upcoming_status",
+          "board_upcoming_unavailable_scopes",
           "input",
           "terminals",
           "terminal_total",
@@ -12529,11 +12535,13 @@
               },
               "series_slug": {
                 "type": "string",
-                "nullable": true
+                "nullable": true,
+                "description": "Series slug from the canonical identity row. Null for Kalshi markets, which carry their series in kalshi_series_slug. For other providers, which today means Polymarket, it is populated only when the canonical row carries a provider seriesSlug, and null otherwise -- so treat null as ordinary, not as a fault. Measured 2026-08-02: non-null on 44,103 of 2,022,671 Polymarket rows lifetime, and on 37,654 of 47,832 rows refreshed in the previous 24 hours. NOTE the granularity for Polymarket: a seriesSlug is a LEAGUE, not a single series -- every same-day MLB game carries mlb -- so it is not a per-matchup grouping key, and the backend itself refuses it as one (#8124). Additive change (#8134): this field was previously null on every market, because its former source column had no working writer."
               },
               "kalshi_series_slug": {
                 "type": "string",
-                "nullable": true
+                "nullable": true,
+                "description": "Kalshi series slug, served from the markets mirror. Null is ORDINARY, not a fault: measured 2026-08-02, non-null on 10,778 of 69,866 Kalshi rows, so most Kalshi markets have none here. One legacy row on the polymarket platform also carries a value. The canonical column holds the ticker for more Kalshi rows, but this field deliberately keeps reading the mirror; changing that is a separate wire change."
               },
               "market_type": {
                 "type": "string",
