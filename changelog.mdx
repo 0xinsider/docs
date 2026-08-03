@@ -12,6 +12,8 @@ This changelog tracks externally visible REST API changes only. Documentation-on
 
   Use `signal_score` for the current score. Use `recorded_signal_score` for the score captured with the trade record in alerts, audits, or historical comparisons.
 
+  If a trade is added later, its time-sensitive recorded score reflects that delay.
+
   The recorded score is available for trades recorded after this release. Older trades return `null`. This field is additive and optional, so existing clients are unaffected.
 </Update>
 

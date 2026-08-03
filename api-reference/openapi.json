@@ -10270,6 +10270,7 @@
           "side",
           "price",
           "signal_score",
+          "recorded_signal_score",
           "trader",
           "market"
         ],
@@ -10312,7 +10313,7 @@
           "recorded_signal_score": {
             "type": "number",
             "nullable": true,
-            "description": "0.0\u20131.0 signal score written once when the trade row is inserted. Available for new rows after this field launched; legacy rows return null."
+            "description": "0.0\u20131.0 signal score written once when the trade row is inserted. Available for new rows after this field launched; legacy rows return null. If a trade is added later, its time-sensitive recorded score reflects that delay."
           },
           "trader": {
             "type": "object",
