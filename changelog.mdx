@@ -7,6 +7,16 @@ rss: true
 
 This changelog tracks externally visible REST API changes only. Documentation-only edits are intentionally excluded.
 
+<Update label="August 3, 2026" description="Large-trade API responses now include the score captured with each new trade">
+  [`GET /api/v1/whale-trades`](/api-reference/endpoint/get-whale-trades), [`GET /api/v1/whale-trades/history`](/api-reference/endpoint/get-whale-trades-history), and [`GET /api/v1/whale-trades/{id}`](/api-reference/endpoint/get-whale-trade) now return optional `recorded_signal_score` alongside `signal_score`.
+
+  Use `signal_score` for the current score. Use `recorded_signal_score` for the score captured with the trade record in alerts, audits, or historical comparisons.
+
+  If a trade is added later, its time-sensitive recorded score reflects that delay.
+
+  The recorded score is available for trades recorded after this release. Older trades return `null`. This field is additive and optional, so existing clients are unaffected.
+</Update>
+
 <Update label="July 26, 2026" description="Pick of the Day reports whether its category-specialist evidence is trustworthy">
   [`GET /api/v1/pick-of-the-day`](/api-reference/endpoint/get-pick-of-the-day) adds `trust`, a full-only object carrying field-level provenance in the same vocabulary the trader endpoint uses.
 
