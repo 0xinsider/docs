@@ -27,7 +27,7 @@
       "get": {
         "operationId": "getApiDiscovery",
         "summary": "API discovery",
-        "description": "Unauthenticated API-origin discovery document pointing agents to the canonical API base URL, full docs, web-origin OpenAPI spec, health check, and the COMPLETE index of authenticated data routes. data.authenticated_routes is the whole authenticated route surface, not a sample: it carries every authenticated route this spec documents, so an agent that starts here never has to guess a path. backend/src/api_v1/discovery.rs::authenticated_routes_match_the_published_spec fails if the index and this spec disagree in either direction.",
+        "description": "Unauthenticated API-origin discovery document pointing agents to the canonical API base URL, full docs, web-origin OpenAPI spec, health check, and the COMPLETE index of authenticated data routes. data.authenticated_routes is the whole authenticated route surface, not a sample: it carries every authenticated route this spec documents, so an agent that starts here never has to guess a path. The index is a hand-maintained const in backend/src/api_v1/discovery.rs kept in step with this spec by review; no automated check compares the two, so treat this spec as authoritative if they ever disagree.",
         "tags": [
           "System"
         ],
@@ -9154,7 +9154,7 @@
           },
           "authenticated_routes": {
             "type": "array",
-            "description": "The complete authenticated route index: one entry per authenticated route this spec documents, in \"<METHOD> <path>\" form, not a representative subset. GET /api/v1 is the unauthenticated entrypoint an agent hits first, so it hands back the whole authenticated surface rather than a sample the caller would have to guess around. The example on GET /api/v1 is abridged for readability -- the live response returns all of them. Kept in lockstep with this spec by backend/src/api_v1/discovery.rs::authenticated_routes_match_the_published_spec, which fails in both directions.",
+            "description": "The complete authenticated route index: one entry per authenticated route this spec documents, in \"<METHOD> <path>\" form, not a representative subset. GET /api/v1 is the unauthenticated entrypoint an agent hits first, so it hands back the whole authenticated surface rather than a sample the caller would have to guess around. The example on GET /api/v1 is abridged for readability -- the live response returns all of them. Kept in lockstep with this spec by review: it is a hand-maintained const in backend/src/api_v1/discovery.rs and no automated check compares the two, so treat this spec as authoritative if they ever disagree.",
             "items": {
               "type": "string"
             }
@@ -10312,7 +10312,7 @@
           "recorded_signal_score": {
             "type": "number",
             "nullable": true,
-            "description": "Immutable 0.0\u20131.0 signal score captured when the trade row was recorded. Available for new rows after this field launched; legacy rows return null."
+            "description": "0.0\u20131.0 signal score written once when the trade row is inserted. Available for new rows after this field launched; legacy rows return null."
           },
           "trader": {
             "type": "object",

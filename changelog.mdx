@@ -7,10 +7,10 @@ rss: true
 
 This changelog tracks externally visible REST API changes only. Documentation-only edits are intentionally excluded.
 
-<Update label="August 2, 2026" description="Large-trade scores are now stable to compare over time">
+<Update label="August 3, 2026" description="Large-trade API responses now include the score captured with each new trade">
   [`GET /api/v1/whale-trades`](/api-reference/endpoint/get-whale-trades), [`GET /api/v1/whale-trades/history`](/api-reference/endpoint/get-whale-trades-history), and [`GET /api/v1/whale-trades/{id}`](/api-reference/endpoint/get-whale-trade) now return optional `recorded_signal_score` alongside `signal_score`.
 
-  Use `signal_score` for the current score. Use `recorded_signal_score` when you need the score captured with the trade record to stay fixed for alerts, audits, or historical comparisons.
+  Use `signal_score` for the current score. Use `recorded_signal_score` for the score captured with the trade record in alerts, audits, or historical comparisons.
 
   The recorded score is available for trades recorded after this release. Older trades return `null`. This field is additive and optional, so existing clients are unaffected.
 </Update>
