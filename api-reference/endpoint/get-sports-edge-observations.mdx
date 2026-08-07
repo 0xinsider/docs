@@ -33,7 +33,15 @@ A healthy `wider_holder` request can reuse a snapshot for about 180 seconds. An 
 
 Directional degradation is cohort-specific. A `wider_holder` candidate can remain emitted with `directional_status: "unavailable"` and terminal reason `wider_holder_emitted`. An `in_play` candidate fails closed instead and is counted under `in_play_directional_unavailable`.
 
-The route reserves about 25 seconds for one compute attempt. Two states return JSON `503 rate_limit_unavailable` with `error.reason: "read_model_warming"`. The first is single-flight refresh or global provider-work admission contention. The second is the deadline elapsing before a usable cache, universe, or exact raw funded-slate membership result exists. Category-resolution SQL errors, Redis coordination failures, observation-universe SQL errors, and primary-slate membership SQL errors return JSON `500 internal_error`. Once a usable universe exists, later unfinished work does not become a route-wide error. Board, holder, price, and metadata work is represented in a degraded `200` funnel instead.
+The route reserves about 25 seconds for one compute attempt.
+
+These states return JSON `503 rate_limit_unavailable` with `error.reason: "read_model_warming"`:
+
+- Single-flight refresh contention.
+- Global provider-work admission contention.
+- The deadline elapsing before a usable cache, universe, or exact raw funded-slate membership result exists.
+
+Category-resolution SQL errors, Redis coordination failures, observation-universe SQL errors, and primary-slate membership SQL errors return JSON `500 internal_error`. Once a usable universe exists, later unfinished board, holder, price, or metadata work does not become a route-wide error. It is represented in a degraded `200` funnel instead.
 
 Pagination uses the endpoint-specific `seo_` cursor. Cursors are pinned to `snapshot_as_of` and the selected cohort, so you cannot reuse one across cohorts or after its snapshot refreshes.
 
