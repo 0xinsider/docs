@@ -4,7 +4,7 @@ sidebarTitle: "Positions"
 openapi: "GET /api/v1/positions"
 ---
 
-Current positions across traders or markets. Each row carries the trader, market, current value, side, and trust-metadata fields (source, freshness, completeness) so you can tell a live provider-backed value from a cached or partial one.
+Current positions across traders or markets. Each row carries the trader, market, current value, and side. It also carries trust-metadata fields for source, freshness, and completeness. You can tell a live provider-backed value from a cached or partial one.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \

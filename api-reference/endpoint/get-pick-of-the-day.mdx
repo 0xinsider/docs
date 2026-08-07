@@ -3,9 +3,9 @@ title: "Get Pick of the Day"
 openapi: "GET /api/v1/pick-of-the-day"
 ---
 
-One sourced sharp-money call a day, promoted to the API. This is a Pro-tier endpoint: your API key already proves the subscription, so the response is always the full pick (the web teaser is a product-UI concept, not an API one).
+One sourced sharp-money call a day, promoted to the API. This is a Pro-tier endpoint. Your API key already proves the subscription, so the response is always the full pick. The web teaser is a product-UI concept, not an API one.
 
-The pick returns the backed side, the pre-game odds and the return on a $100 stake, the proven smart-money holders on that side, the grade and category edge, and the thesis behind it.
+The pick returns the backed side, the pre-game odds, and the return on a $100 stake. It also returns the proven smart-money holders on that side, the grade and category edge, and the thesis behind it.
 
 - `backed_price` and `return_per_100` are a snapshot frozen before kickoff, so the value does not drift between calls.
 - `sharp_pct`, `market_pct`, and `consensus_edge_pct` are the WHY breakdown: sharp-money conviction versus the market-implied price. These are conviction signals, not expected-value or guaranteed-edge claims.

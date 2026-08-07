@@ -3,7 +3,7 @@ title: "Trust Metadata"
 description: "Every derived field can tell you where it came from, how fresh it is, and whether it was reconciled against the provider."
 ---
 
-Most APIs hand you a number and leave you to guess whether it is live, cached, or stale. 0xinsider can tell you. Ask for trust metadata and every covered field comes with its own provenance: the source it came from, how fresh it is, whether it was reconciled against the on-chain or provider truth, and whether the value is complete.
+Most APIs hand you a number and leave you to guess whether it is live, cached, or stale. 0xinsider can tell you. Ask for trust metadata and every covered field comes with its own provenance. That means the source it came from and how fresh it is. It also means whether the value was reconciled against the on-chain or provider truth, and whether it is complete.
 
 This matters when you act on the data. A P&L figure that is `fresh` and `provider_backed` is safe to trade on. The same figure marked `stale` and `db_mirror` is a hint, not a fact.
 
@@ -103,7 +103,7 @@ Whether the value reflects the full picture.
 
 ## Using it in practice
 
-A simple rule covers most integrations: act on values that are `fresh` and either `provider_backed` or `db_mirror`, and treat anything `stale`, `partial`, or `unavailable` as a softer signal.
+One rule covers most integrations. Act on values that are `fresh` and either `provider_backed` or `db_mirror`. Treat anything `stale`, `partial`, or `unavailable` as a softer signal.
 
 ```python
 def is_actionable(field_trust):

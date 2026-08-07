@@ -122,7 +122,7 @@ endpoints remain restricted to configured 0xinsider origins.
 
 ## Trust metadata
 
-Newer builder endpoints (snapshots, history ranges, batch reads, reports) attach metadata to provider-owned values so you can tell provider-backed, cached, partial, stale, and unavailable data apart.
+Newer builder endpoints attach metadata to provider-owned values. Those endpoints are snapshots, history ranges, batch reads, and reports. The metadata lets you tell provider-backed, cached, partial, stale, and unavailable data apart.
 
 Per value, four dimensions:
 
@@ -133,4 +133,4 @@ Per value, four dimensions:
 
 See [Trust metadata](/concepts/trust-metadata) for what each value means and how to request field-level trust with `expand=trust`.
 
-Rule of thumb: **don't flatten unavailable values into `0`, `[]`, or `{}`.** Read the metadata and surface "unavailable" to your consumer instead of inventing a zero. Provider data that quietly becomes `0` causes silent bugs downstream.
+Rule of thumb: **don't flatten unavailable values into `0`, `[]`, or `{}`.** Read the metadata. Surface "unavailable" to your consumer instead of inventing a zero. Provider data that quietly becomes `0` causes silent bugs downstream.
