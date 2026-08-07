@@ -50,4 +50,4 @@ These read paths return both Polymarket and Kalshi data:
 - Market intel and smart-money flows ([`/market/{condition_id}/intel`](/api-reference/endpoint/get-market-intel), [`/markets/smart-money-flows`](/api-reference/endpoint/smart-money-flows)).
 - Market search and explore ([`/markets/search`](/api-reference/endpoint/search-markets), [`/markets/explore`](/api-reference/endpoint/explore-markets)).
 
-When a field is thin or absent for Kalshi, [trust metadata](/concepts/trust-metadata) marks it (`unsupported` sources surface as `unavailable`), so you can detect coverage gaps in code instead of guessing.
+When a field is thin or absent for Kalshi, [trust metadata](/concepts/trust-metadata) marks it. An `unsupported` source surfaces as `unavailable`. You can detect coverage gaps in code instead of guessing.

@@ -112,7 +112,7 @@ Two rules make or break verification:
 - Use the **raw request body bytes**, exactly as received. Do not parse and re-serialize the JSON first; whitespace and key order would change and the HMAC would not match.
 - Use the `signing_secret` string as the HMAC key, the full `whsec_...` value.
 
-Reject the delivery if the signature does not match, or if `x-0xinsider-timestamp` is more than 5 minutes from your clock (a replay guard you enforce on your side).
+Reject the delivery if the signature does not match. Reject it if `x-0xinsider-timestamp` is more than 5 minutes from your clock. That is a replay guard you enforce on your side.
 
 <CodeGroup>
 ```javascript Node (Express)

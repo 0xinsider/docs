@@ -995,7 +995,7 @@ Owner-scoped view of one webhook delivery attempt. Deliberately omits the reques
 
 ## WebhookEventDescriptor
 
-Self-describing entry in the webhook event catalog: the event type a subscriber lists in event_types, when it fires, the data payload shape, and whether it currently fires (active) or is reserved (dormant, subscribable but not yet delivered). Pro-only event types (wallet_grade_changed, insider_radar_flag_raised, smart_money_flow_detected) only deliver to API keys on an active Pro subscription.
+Self-describing entry in the webhook event catalog. It carries the event type a subscriber lists in event_types, when it fires, and the data payload shape. It also says whether the event currently fires (active) or is reserved (dormant, subscribable but not yet delivered). Pro-only event types (wallet_grade_changed, insider_radar_flag_raised, smart_money_flow_detected) only deliver to API keys on an active Pro subscription.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
