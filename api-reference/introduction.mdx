@@ -12,7 +12,8 @@ https://api.0xinsider.com/api/v1/
 
 ## Authentication
 
-Every endpoint except `/health` needs a Bearer token:
+Most data endpoints need a Bearer token. Discovery, OpenAPI, health, platforms,
+and remote MCP are public:
 
 ```bash
 Authorization: Bearer oxi_sk_live_...

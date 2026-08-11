@@ -3,7 +3,8 @@ title: "Authentication"
 description: "Create, send, and rotate 0xinsider API keys."
 ---
 
-All requests except `/health` need a Bearer token:
+Most data endpoints need a Bearer token. Discovery, OpenAPI, health, platforms,
+and remote MCP are public:
 
 ```bash
 Authorization: Bearer oxi_sk_live_...

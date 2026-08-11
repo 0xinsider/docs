@@ -15,7 +15,14 @@ curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/trader/0x863134d00841b2e200492805a01e1e2f5defaa53/position-timeline?condition_id=0xabc..."
 ```
 
-This path accepts a wallet address. If you have a username, `trd_` ID, or integer trader ID, use [Get Trader Position Timeline](/api-reference/endpoint/get-trader-position-timeline).
+The `address` path segment accepts these trader identities:
+
+- wallet address, such as `0x863...`
+- known username
+- `trd_`-prefixed trader ID
+- bare integer `traders.id`
+
+The server checks wallet, `trd_` ID, integer ID, then username. Use [Get Trader Position Timeline](/api-reference/endpoint/get-trader-position-timeline) when you need its plural alias path.
 
 ## Example: explain a position
 
