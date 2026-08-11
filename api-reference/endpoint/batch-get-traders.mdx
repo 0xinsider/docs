@@ -3,7 +3,11 @@ title: "Batch Get Traders"
 openapi: "POST /api/v1/traders/batch"
 ---
 
-Fetch up to 25 trader profiles in one call. Each item has the same shape as [Get Trader](/api-reference/endpoint/get-trader), plus a per-item `error` field when an address fails.
+Get up to 25 trader profiles in one request. Each item matches [Get Trader](/api-reference/endpoint/get-trader).
+
+## Use this endpoint when
+
+Use this endpoint when a leaderboard, alert, or follow list contains several wallets. It avoids one request per trader.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
@@ -12,4 +16,10 @@ curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/traders/batch"
 ```
 
-Each item costs one unit against the batch budget: a 25-address batch reserves 25 units. The top-level status stays `200` even when some items fail, so check `data[i].error` per item. See [Rate Limits](/rate-limits).
+Read `data[i].error` for every item. The top-level status stays `200` when one trader fails.
+
+Each item costs one batch unit. A 25-trader request costs 25 units. See [Rate Limits](/rate-limits).
+
+## Example: enrich a follow list
+
+Send the wallet addresses from your leaderboard result. Keep successful profiles and record item errors for later retry.

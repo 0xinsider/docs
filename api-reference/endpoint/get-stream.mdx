@@ -3,13 +3,23 @@ title: "Get Stream"
 openapi: "GET /api/v1/stream"
 ---
 
-A resumable Server-Sent Events stream of the live feed envelopes the platform broadcasts: whale-trade pulses and other public and insider feed events. This is a long-lived `text/event-stream` response. Keep the connection open and read frames as they arrive. It forwards the same backend-owned envelope shape as the internal feed, with no provider data recomputed.
+Open a resumable Server-Sent Events stream for live feed envelopes. The response stays open as `text/event-stream`.
 
-Authenticate with your `oxi_sk` Bearer key like every other `/api/v1` endpoint. Connection counts are limited per API key and across the cluster. When either cap is exceeded you get `429` with a `Retry-After`. You get `503` with a `Retry-After` if the admission backend is briefly unavailable.
+## Use this endpoint when
+
+Use this endpoint when a service needs whale-trade and feed events with low delay. Keep a durable last-event checkpoint.
+
+Authenticate with an `oxi_sk` Bearer key. Connection limits apply per key and across the cluster. A limit returns `429` with `Retry-After`. Admission failure returns `503` with `Retry-After`.
 
 ```bash
 curl -N -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/stream"
 ```
 
-Every frame carries an SSE `id` equal to the envelope sequence. To resume after a disconnect, reconnect with the `Last-Event-ID` header. Use the `last_event_id` or `seq` query fallback when you cannot set the header. The stream replays the strictly-newer window before resuming live. If your resume point predates the retained window, the stream emits one `event: resync` marker instead of silently skipping frames. Idle connections receive periodic `: keep-alive` comment lines.
+Every frame has an SSE `id` equal to the envelope sequence. Reconnect with `Last-Event-ID` after a disconnect. Use `last_event_id` or `seq` when you cannot set that header.
+
+The stream replays newer events before it sends live events. An old checkpoint emits one `event: resync` marker. Idle connections send `: keep-alive` comments.
+
+## Example: recover a feed worker
+
+Save the last processed SSE ID after each event. Send it on the next connection and process duplicate events safely.

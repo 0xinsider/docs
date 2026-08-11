@@ -3,20 +3,28 @@ title: "Get Pick of the Day track record"
 openapi: "GET /api/v1/pick-of-the-day/archive"
 ---
 
-The full Pick of the Day track record: every published pick with its real outcome, plus the rolling hit rate.
+Get the full Pick of the Day record and its rolling hit rate.
 
-- `picks` lists every published pick, most recent last, each with its `outcome` and (for resolved, priced picks) the `return_per_100` on a $100 stake.
-- `hit_rate` is the headline record: `wins`, `losses`, `decided` (wins + losses), and `pct` (wins / decided). `void` and `pending` picks are excluded from the rate.
-- `hit_rate.net_profit_usd`, `staked_usd`, and `roi_pct` model a flat $100-per-pick strategy over resolved, priced picks.
-- `hit_rate.series` is the cumulative curve, one point per decided pick in ascending date order, ready to chart. Its last point equals the headline `net_profit_usd` and `pct` by construction.
+## Use this endpoint when
 
-Resolved picks are the public record. A still-pending pick's backed side (`pick_outcome_label`) is included because the API key already proves Pro tier.
+Use this endpoint to build a results page or chart the record over time.
+
+- `picks` contains published picks and their outcomes.
+- `hit_rate` contains wins, losses, decided picks, and `pct`. `void` and `pending` picks do not count.
+- `hit_rate.net_profit_usd`, `staked_usd`, and `roi_pct` model a flat $100 stake.
+- `hit_rate.series` contains one point per decided pick in date order.
+
+Resolved picks form the record. A pending pick can still include `pick_outcome_label`.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/pick-of-the-day/archive"
 ```
 
-Side-effect-free and ETag-cacheable. Send the previous `ETag` back via `If-None-Match` for a `304 Not Modified` when the archive is unchanged.
+The response is side-effect-free and ETag-cacheable. Send `If-None-Match` for `304 Not Modified` when the archive is unchanged.
 
-For today's single pick, see [Get Pick of the Day](/api-reference/endpoint/get-pick-of-the-day).
+For the current single pick, see [Get Pick of the Day](/api-reference/endpoint/get-pick-of-the-day).
+
+## Example: chart the record
+
+Plot `hit_rate.series`. Use `hit_rate` for the headline value and do not count `pending` or `void` picks.

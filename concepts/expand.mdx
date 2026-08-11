@@ -1,15 +1,15 @@
 ---
 title: "Expanding Responses"
-description: "Use the expand parameter to pull heavier fields and trust metadata only when you need them."
+description: "Request strategy, quant, category, or trust fields with expand."
 ---
 
-Trader responses stay lean by default. The expensive fields, strategy classification, per-category performance, quant metrics, and trust metadata, are left out unless you ask for them. The `expand` parameter pulls them in.
+Trader responses are small by default. Use `expand` for strategy, category performance, quant metrics, or trust metadata.
 
-This keeps the common path fast. Expanded fields skip the cache and read fresh, so request them only when you need them.
+Expanded fields read fresh and make a heavier request. Ask only for fields your screen uses.
 
 ## How to pass it
 
-`expand` is repeatable. Use a comma-separated list or repeat the bracketed key:
+`expand` accepts a comma-separated list or repeated keys:
 
 ```bash
 # Comma-separated
@@ -21,11 +21,11 @@ curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/trader/0x204f...?expand[]=strategy&expand[]=trust"
 ```
 
-Unknown values are ignored, so a forward-compatible client can safely pass options an older API build does not recognize.
+Unknown values are ignored.
 
 ## The four expand values
 
-Available on [`GET /api/v1/trader/{address}`](/api-reference/endpoint/get-trader) and [`POST /api/v1/traders/batch`](/api-reference/endpoint/batch-get-traders):
+These values work on [`GET /api/v1/trader/{address}`](/api-reference/endpoint/get-trader) and [`POST /api/v1/traders/batch`](/api-reference/endpoint/batch-get-traders):
 
 | Value | Adds field | What it contains |
 |---|---|---|
@@ -34,7 +34,7 @@ Available on [`GET /api/v1/trader/{address}`](/api-reference/endpoint/get-trader
 | `quant_metrics` | `quant_metrics` | A fixed set of nine curated risk and performance metrics, including the `smart_score` and `copy_score` headline scores. See [Quant metrics](/concepts/quant-metrics). |
 | `trust` | `trust` | Field-level [trust metadata](/concepts/trust-metadata): source, freshness, reconciliation, and completeness for each derived field. |
 
-## Example
+## Example: add strategy data
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
@@ -59,11 +59,11 @@ curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
 
 ## Market snapshots
 
-[`GET /api/v1/market/{condition_id}/snapshot`](/api-reference/endpoint/get-market-snapshot) accepts `expand=trust` only. It adds trust metadata for the snapshot's `current_price` and `spread_bps`. The trader-only values (`strategy`, `categories`, `quant_metrics`) do not apply to markets.
+[`GET /api/v1/market/{condition_id}/snapshot`](/api-reference/endpoint/get-market-snapshot) accepts only `expand=trust`. It adds trust metadata for `current_price` and `spread_bps`.
 
 ## Cost
 
-Expanded fields read live instead of from cache, so an expanded request is heavier than a plain one. Two habits keep this cheap:
+Expanded requests are heavier than plain requests. Keep them cheap:
 
-- Request only the expansions you use on a given screen.
-- For many traders at once, use [`POST /api/v1/traders/batch`](/api-reference/endpoint/batch-get-traders) with a single `expand` set rather than one expanded request per trader.
+- Request only the fields you use.
+- Use [`POST /api/v1/traders/batch`](/api-reference/endpoint/batch-get-traders) for many traders instead of one expanded request per trader.

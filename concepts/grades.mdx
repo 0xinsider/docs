@@ -1,36 +1,36 @@
 ---
 title: "Trader Grades"
-description: "What S, A, B, C, D, F mean, with real profile examples."
+description: "Use trader grades to filter profiles and whale trades."
 ---
 
-Every trader gets one letter grade. It answers one question: should you pay attention to this wallet?
+Each trader has one letter grade. It is a first-pass quality filter.
 
-Grades show up on the leaderboard, on every trader profile, and inside every whale trade object.
+The grade appears on leaderboards, trader profiles, and whale trades.
 
 ## The scale
 
 | Grade | One-line meaning | On the leaderboard? |
 |---|---|---|
-| **S** | Elite. Years of evidence, outsized P&L, high win rate, real volume. | Yes |
-| **A** | Strong. Consistently profitable, well-diversified across markets. | Yes |
-| **B** | Above average. Solid recent track record, smaller sample. | Yes |
-| **C** | Roughly breakeven. Not a clear signal. | No |
-| **D** | Net losing across the sample. | No |
-| **F** | Persistently losing. Often coin-flip or chasing resolved markets. | No |
+| **S** | Elite record with high P&L, win rate, and volume. | Yes |
+| **A** | Strong and consistent record across markets. | Yes |
+| **B** | Above average, with a smaller sample. | Yes |
+| **C** | Near breakeven. | No |
+| **D** | Net losing record. | No |
+| **F** | Persistent losses or random behavior. | No |
 
-The leaderboard ranks only S, A, and B. Those are the wallets worth following.
+The leaderboard includes S, A, and B traders.
 
 ## What goes into the grade
 
-The score is a composite (0-100) of five inputs:
+The score is a 0-100 composite of five inputs:
 
-1. **Realized P&L**: actual profit from closed positions, not unrealized markings.
-2. **Win rate**: share of markets that resolved in their favor.
-3. **Volume**: total traded size. More volume means more signal per trade.
-4. **Market count**: distinct markets they have touched (diversification).
-5. **Recency**: penalizes wallets that have not traded in a long time.
+1. **Realized P&L**: profit from closed positions.
+2. **Win rate**: share of markets resolved in their favor.
+3. **Volume**: total traded size.
+4. **Market count**: distinct markets traded.
+5. **Recency**: recent trading activity.
 
-Score thresholds assign the letter. Only B or better makes the leaderboard.
+Score thresholds assign the letter. Only B or better appears on the leaderboard.
 
 ## Two real profiles, side by side
 
@@ -53,7 +53,7 @@ Score thresholds assign the letter. Only B or better makes the leaderboard.
 }
 ```
 
-Very high realized P&L, near-perfect win rate, a classifiable strategy, a clear category strength.
+This profile shows high realized P&L, a high win rate, a strategy label, and a category strength.
 
 ### C-grade: noisy and small
 
@@ -74,13 +74,13 @@ Very high realized P&L, near-perfect win rate, a classifiable strategy, a clear 
 }
 ```
 
-P&L near breakeven, a coin-flip win rate, no detectable strategy. Visible in the API, but not on the leaderboard.
+This profile is available from the API but not from the leaderboard.
 
-## Using grades in the API
+## Use grades in the API
 
-### Filter whale trades by grade
+### Example: filter whale trades by grade
 
-Only see trades from A-grade or better:
+Use `min_grade=A` to read S and A trades:
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
@@ -89,9 +89,9 @@ curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
 
 `min_grade` accepts `S`, `A`, `B`. Setting `min_grade=A` returns S **and** A.
 
-### Filter the leaderboard by strategy
+### Example: filter the leaderboard by strategy
 
-Pull only S/A/B-grade swing traders:
+Use `strategy` to rank one style:
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
@@ -100,9 +100,9 @@ curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
 
 Some traders make the leaderboard but lack a classifiable strategy. Their `strategy_type` is `null`, so treat the field as nullable when filtering client-side.
 
-### Combine grade + category
+### Example: combine grade and category
 
-What are A-grade or better crypto traders trading right now? (Each item carries its `side` in the response, so you can split buys from sells client-side.)
+Use both filters to inspect A-grade-or-better crypto trades. Read `side` from each item.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
@@ -111,4 +111,4 @@ curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
 
 ## A note on null strategies
 
-A leaderboard trader without a strategy classification just means we haven't detected a stable pattern yet. They are still a graded trader. Don't filter them out unless you actually need a labeled strategy.
+A missing `strategy_type` means no stable pattern is classified yet. Keep the trader unless your workflow needs a label.

@@ -1,46 +1,46 @@
 ---
 title: "0xinsider API"
 sidebarTitle: "Introduction"
-description: "Prediction market intelligence for AI agents, trading bots, and research tools."
+description: "Trader, market, and whale-trade data for agents, bots, and research tools."
 ---
 
-Trader grades, whale-trade signals, smart-money flow, positions, and insider detection for Polymarket and Kalshi. The same data behind the [0xinsider terminal](https://0xinsider.com), as an API.
+Use 0xinsider to read trader grades, whale trades, smart-money flow, positions, and insider signals from Polymarket and Kalshi.
 
-Three ways in:
+Choose one of three interfaces:
 
 - **REST API**: `https://api.0xinsider.com/api/v1/` for bots, dashboards, and research code.
 - **Local MCP server**: [`@0xinsider/mcp`](https://www.npmjs.com/package/@0xinsider/mcp) on stdio for Claude Code, Cursor, Codex, Gemini CLI.
-- **Remote MCP**: streamable HTTP for agents that can't run a local subprocess.
+- **Remote MCP**: Streamable HTTP for agents that cannot run a local process.
 
 One [Insider subscription](https://0xinsider.com/pricing) covers all three.
 
 <Tip>
-  Working in Claude Code, Cursor, or another AI agent? Feed it [llms-full.txt](https://docs.0xinsider.com/llms-full.txt), the whole docs site as one plain-text file. Drop it into context and ask the model to wire up calls, draft a bot, or surface ideas you can build on the data.
+  Use [llms-full.txt](https://docs.0xinsider.com/llms-full.txt) when an AI agent needs the full API reference in one file.
 </Tip>
 
 ## What it solves
 
-Polymarket and Kalshi publish raw trades. They don't publish grades, signal scores, smart-money breakdowns, position timelines, or pattern detection. 0xinsider builds that layer. The API exposes it.
+The source platforms provide raw market activity. 0xinsider adds trader grades, signal scores, smart-money flow, position timelines, and pattern detection.
 
-So you can answer:
+Use the API to answer questions such as:
 
-- Which traders consistently beat the market on crypto resolution events?
-- Did anyone buy big into this market in the last hour, and are they sharp?
-- Is someone accumulating shares in a market that hasn't resolved yet?
-- Where is smart money flowing this week?
-- What price did that S-grade trader get filled at?
+- Which traders have a strong record in a category?
+- Did a high-grade trader buy this market recently?
+- Is a trader building a position before resolution?
+- Which markets receive smart-money flow?
+- What fill price appears in a trader's timeline?
 
 ## What you can build
 
-- **Trading bots** that fire on whale buys from S-grade traders in a category.
-- **AI agents** that summarize who's winning, what they hold, and at what cost.
-- **Research tools** that pull leaderboards, trader profiles, history ranges, and category performance.
-- **Dashboards** that show where capital is rotating across prediction markets.
-- **Webhooks** that push whale-trade and radar events to your stack in real time.
+- **Trading bots** that react to high-grade whale trades.
+- **AI agents** that explain trader records and positions.
+- **Research tools** that compare traders and historical fills.
+- **Dashboards** that show market flow and open positions.
+- **Webhooks** that notify your system about new events.
 
 ## A real response
 
-The top trader by composite score, right now:
+Example: read the first leaderboard item.
 
 ```bash
 curl -H "Authorization: Bearer oxi_sk_live_..." \
@@ -67,58 +67,58 @@ curl -H "Authorization: Bearer oxi_sk_live_..." \
 }
 ```
 
-One trader. The leaderboard ranks thousands.
+The example shows the response shape. Query the endpoint again when you need current data.
 
 ## Endpoints
 
 <CardGroup cols={2}>
   <Card title="Get Trader" icon="user" href="/api-reference/endpoint/get-trader">
-    Full profile for a wallet: grade, P&L, win rate, strategy, category strengths.
+    Read a wallet's grade, P&L, win rate, strategy, and category strengths.
   </Card>
   <Card title="Batch Get Traders" icon="layer-group" href="/api-reference/endpoint/batch-get-traders">
-    Up to 25 trader profiles in one round trip.
+    Read up to 25 trader profiles in one call.
   </Card>
   <Card title="Whale Trades" icon="whale" href="/api-reference/endpoint/get-whale-trades">
-    Recent large trades with signal scoring. Filter by grade, category, side.
+    Read recent large trades. Filter by grade, category, or side.
   </Card>
   <Card title="Whale Trades History" icon="clock-rotate-left" href="/api-reference/endpoint/get-whale-trades-history">
-    Historical whale-trade ranges for backtesting and recap reports.
+    Read historical whale trades for backtests and reports.
   </Card>
   <Card title="Positions" icon="chart-line" href="/api-reference/endpoint/get-positions">
-    Current positions across traders or markets, with freshness metadata.
+    Read current positions with freshness metadata.
   </Card>
   <Card title="Position Timeline" icon="timeline" href="/api-reference/endpoint/get-position-timeline">
-    Server-computed running amount and average entry price per fill.
+    Read fill order, running amount, and average entry price.
   </Card>
   <Card title="Explore Markets" icon="compass" href="/api-reference/endpoint/explore-markets">
-    Browse whale-active titled markets by category, platform, status.
+    Browse whale-active markets by category, platform, or status.
   </Card>
   <Card title="Market Intel" icon="chart-mixed" href="/api-reference/endpoint/get-market-intel">
-    Smart-money flow direction and top positions for a single market.
+    Read smart-money flow and top positions for one market.
   </Card>
   <Card title="Market Snapshot" icon="camera" href="/api-reference/endpoint/get-market-snapshot">
-    One-shot market state with trust-metadata fields.
+    Read one market snapshot with trust metadata.
   </Card>
   <Card title="Leaderboard" icon="ranking-star" href="/api-reference/endpoint/get-leaderboard">
-    Top traders by composite score, cursor-paginated.
+    List top traders by composite score.
   </Card>
   <Card title="Search Markets" icon="magnifying-glass" href="/api-reference/endpoint/search-markets">
-    Keyword search across markets with filters.
+    Search markets by keyword and filters.
   </Card>
   <Card title="Insider Radar" icon="radar" href="/api-reference/endpoint/get-insider-radar">
-    Suspicious patterns: pre-resolution accumulation, unusual timing.
+    Find unusual timing and pre-resolution accumulation.
   </Card>
   <Card title="Event Replay" icon="rotate-right" href="/api-reference/endpoint/get-event-replay-since">
-    Replay missed feed events after a disconnection.
+    Replay feed events after a disconnect.
   </Card>
   <Card title="Webhooks" icon="webhook" href="/api-reference/endpoint/list-webhooks">
-    Push whale-trade and radar events to your endpoint.
+    Push supported events to your HTTPS endpoint.
   </Card>
   <Card title="Report Snapshots" icon="file-chart-column" href="/api-reference/endpoint/get-daily-report-snapshot">
-    Daily, weekly, monthly recap exports.
+    Read daily, weekly, or monthly reports.
   </Card>
   <Card title="Remote MCP" icon="robot" href="/api-reference/endpoint/remote-mcp">
-    Streamable HTTP MCP endpoint for hosted agents.
+    Connect hosted agents over Streamable HTTP.
   </Card>
 </CardGroup>
 
@@ -126,15 +126,15 @@ One trader. The leaderboard ranks thousands.
 
 <CardGroup cols={2}>
   <Card title="Quickstart" icon="rocket" href="/quickstart">
-    Generate a key, fire your first request, and follow the whales end to end.
+    Generate a key and make a first request.
   </Card>
   <Card title="Local MCP Server" icon="terminal" href="/integrations/mcp">
-    Plug 0xinsider into Claude Code, Cursor, Codex, or Gemini CLI in two minutes.
+    Connect a local AI client over stdio.
   </Card>
   <Card title="TypeScript Client" icon="code" href="/integrations/typescript-client">
-    Drift-tested source client with typed errors and repeated `expand` params.
+    Use typed calls, errors, and `expand` parameters.
   </Card>
   <Card title="Trader Grades" icon="medal" href="/concepts/grades">
-    What S, A, B, C, D, F actually mean, with real profile examples.
+    Learn what each trader grade means.
   </Card>
 </CardGroup>

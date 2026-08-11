@@ -3,7 +3,11 @@ title: "Health Check"
 openapi: "GET /api/v1/health"
 ---
 
-A liveness probe. Returns `200` with database and cache status when the API is up. No auth required, so it works as a smoke test from CI or a status dashboard.
+Check API liveness and database and cache status. The endpoint needs no auth.
+
+## Use this endpoint when
+
+Use this endpoint for a status page or a startup check before you use an API key.
 
 ```bash
 curl https://api.0xinsider.com/api/v1/health
@@ -16,3 +20,7 @@ curl https://api.0xinsider.com/api/v1/health
   "meta": { "request_id": "req_abc123", "cached": false }
 }
 ```
+
+## Example: gate a worker start
+
+Start the worker only when the response is `200` and `data.status` is `ok`. Log `meta.request_id` when the check fails.

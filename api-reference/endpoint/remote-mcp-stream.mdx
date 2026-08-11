@@ -4,7 +4,11 @@ sidebarTitle: "Remote MCP stream"
 openapi: "GET /api/v1/mcp"
 ---
 
-Open the server-to-client streaming channel for [Remote MCP](/api-reference/endpoint/remote-mcp). Pass the `Mcp-Session-Id` from the `initialize` call to attach to your session, plus `Authorization: Bearer ...` if your client supports headers.
+Open the server-to-client stream for [Remote MCP](/api-reference/endpoint/remote-mcp). Pass the `Mcp-Session-Id` from `initialize`.
+
+## Use this endpoint when
+
+Use this endpoint after you start a Remote MCP session and need a server-to-client stream.
 
 ```bash
 curl -N \
@@ -13,4 +17,8 @@ curl -N \
   https://api.0xinsider.com/api/v1/mcp
 ```
 
-This is the stdio analog over HTTP. Hold the connection open to receive streamed tool responses, progress events, and resource updates.
+Keep the connection open for server-to-client notifications. The current GET stream sends only a keep-alive. Send `tools/call` to the POST endpoint to receive a tool response.
+
+## Example: keep a session stream open
+
+Send the session ID from the initialize response. Do not wait for tool results on this GET stream. Use [Remote MCP](/api-reference/endpoint/remote-mcp) for POST requests and tool results.

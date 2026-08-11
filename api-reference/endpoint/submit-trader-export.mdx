@@ -3,11 +3,21 @@ title: "Submit Trader Export"
 openapi: "POST /api/v1/trader/{address}/export"
 ---
 
-Queues an asynchronous full-dataset export for one trader. Choose `json`, `ndjson`, or `csv`; JSON is the default.
+Queue a full trader export. Choose `json`, `ndjson`, or `csv`; JSON is the default.
+
+## Use this endpoint when
+
+Use this endpoint when an offline job needs more data than one JSON response should carry.
 
 ```bash
 curl -X POST -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/trader/0xabc.../export?format=ndjson"
 ```
 
-The response contains the job ID. [Poll its status](/api-reference/endpoint/get-trader-export-status), then use the [download endpoint](/api-reference/endpoint/download-trader-export) after the job reaches `ready`. Quotas are enforced per API-key owner and trader address.
+The response contains a job ID. Poll [Trader Export Status](/api-reference/endpoint/get-trader-export-status), then call [Download Trader Export](/api-reference/endpoint/download-trader-export) when the job is `ready`.
+
+Quotas apply per API-key owner and trader address.
+
+## Example: queue an NDJSON export
+
+Store the job ID in a worker record. Retry status reads with a delay until the job reaches `ready` or `failed`.

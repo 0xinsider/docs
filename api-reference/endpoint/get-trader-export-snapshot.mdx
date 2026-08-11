@@ -3,11 +3,19 @@ title: "Get Trader Export Snapshot"
 openapi: "GET /api/v1/trader/{address}/export"
 ---
 
-One-shot export of everything 0xinsider knows about a trader: profile, positions, recent trades, category breakdown. Built for offline analysis or feeding into an LLM prompt.
+Get one export snapshot for a trader. It includes the profile, positions, recent trades, and category breakdown.
+
+## Use this endpoint when
+
+Use this endpoint for offline analysis or one agent request that needs several trader datasets.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/trader/0x863134d00841b2e200492805a01e1e2f5defaa53/export"
 ```
 
-Each section carries trust metadata, so you can tell which fields are live provider-backed and which are cached or partial.
+Each section carries trust metadata. Read it before you label a value live or complete.
+
+## Example: prepare an offline brief
+
+Save the response with its freshness metadata. Give the snapshot date to the analyst or agent with the data.

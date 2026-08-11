@@ -1,9 +1,9 @@
 ---
 title: "Number Formatting"
-description: "How numeric values are formatted in API responses."
+description: "Read decimal precision, truncation, nulls, and unavailable values."
 ---
 
-Numbers come back as plain JSON numbers, not strings. Floating-point values are **truncated**, not rounded, at the API edge. The displayed value never overstates the real one.
+The API returns JSON numbers, not numeric strings. Decimal values are **truncated**, not rounded.
 
 ## Precision
 
@@ -16,13 +16,13 @@ Numbers come back as plain JSON numbers, not strings. Floating-point values are 
 
 ## Truncated, not rounded
 
-`97.9488...` becomes `97.94`, not `97.95`. `-12.345` becomes `-12.34`. Always toward zero.
+`97.9488...` becomes `97.94`. `-12.345` becomes `-12.34`. Truncation moves toward zero.
 
-Need stricter precision for accounting? Compute from the source data. The edge value is display-safe, not accounting-grade.
+For accounting precision, compute from source data. API values are display-safe.
 
 ## Integer fields
 
-These are exact integers. No decimals, no truncation:
+These fields are exact integers:
 
 - `markets_traded`
 - `rank`
@@ -30,6 +30,6 @@ These are exact integers. No decimals, no truncation:
 
 ## Nulls and `unavailable`
 
-Many fields are nullable (e.g. `strategy_type`, `best_category`). Treat them as nullable even when an endpoint usually populates them.
+Treat nullable fields such as `strategy_type` and `best_category` as nullable on every response.
 
-Newer builder endpoints also return **trust metadata**: explicit `unavailable` or `partial` markers when a provider-owned value can't be returned at request time. Don't convert these into `0`, `[]`, or `{}`. Read the metadata field and treat the value as missing.
+Builder endpoints can return trust metadata with `unavailable` or `partial`. Do not convert these values to `0`, `[]`, or `{}`. Read the metadata.

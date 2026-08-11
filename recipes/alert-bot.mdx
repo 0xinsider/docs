@@ -1,15 +1,15 @@
 ---
 title: "Alert bot"
-description: "Get notified on large trades, by webhook push or by polling, then post to Slack or Discord."
+description: "Alert on large trades with webhooks or polling."
 ---
 
-Goal: fire an alert when a large trade lands. There are two ways to receive the events: a webhook push (no infrastructure to poll, needs a public URL) or polling (works anywhere). Pick one.
+Use this recipe to alert on large trades. Choose webhook push for a public server or polling for a script behind NAT.
 
 All requests need a Bearer key. See [Authentication](/authentication).
 
 ## Option A: webhook push
 
-Register an endpoint on `whale_trades_inserted` and verify it. Full setup, signature verification, and retry handling are in the [Webhooks guide](/guides/webhooks). The event tells you new trades landed; fetch the detail and filter:
+Subscribe to `whale_trades_inserted` and verify the endpoint. Then fetch the new trades and filter them:
 
 ```python
 # Inside your verified webhook handler, after signature check:
@@ -25,11 +25,11 @@ def handle_event(event):
         post_alert(tr)
 ```
 
-Webhook events are coarse: one event per ingest batch, no per-market or per-grade server-side filter. Apply your `min_size` and `min_grade` filter on the fetched trades.
+Webhook events identify an ingest batch. They do not filter by market, size, or grade. Apply those filters after the fetch.
 
 ## Option B: polling
 
-No public URL required. Walk the durable replay feed with a cursor so you never miss or double-count an event across restarts:
+No public URL is required. Persist the replay cursor across restarts:
 
 ```python
 import os, time, requests
@@ -55,7 +55,7 @@ while True:
         time.sleep(15)
 ```
 
-For the live feed directly, poll [`GET /api/v1/whale-trades`](/api-reference/endpoint/get-whale-trades) with your filters, or open the [SSE stream](/api-reference/endpoint/get-stream) for real-time push without a webhook.
+You can also poll [`GET /api/v1/whale-trades`](/api-reference/endpoint/get-whale-trades) with filters or open the [SSE stream](/api-reference/endpoint/get-stream).
 
 ## Post the alert
 
@@ -69,7 +69,7 @@ def post_alert(tr):
     requests.post(os.environ["SLACK_WEBHOOK_URL"], json={"text": msg})
 ```
 
-## Which to choose
+## Choose a delivery method
 
 | | Webhook push | Polling |
 |---|---|---|
@@ -78,4 +78,4 @@ def post_alert(tr):
 | Missed events on downtime | Retried up to 8 times | Caught up via cursor |
 | Filtering | After receipt | Query params (whale-trades) |
 
-Webhooks win when you have a server and want the lowest latency. Polling the cursor feed wins for a script, a notebook, or anything behind NAT.
+Use webhooks for low latency with a public server. Use the cursor feed for scripts, notebooks, and private networks.

@@ -4,11 +4,15 @@ sidebarTitle: "Remote MCP"
 openapi: "POST /api/v1/mcp"
 ---
 
-Hosted, streamable HTTP MCP endpoint. Use it when your agent can't spawn a local `npx` subprocess: a serverless function, a browser-based agent, or a hosted automation runtime.
+Use the hosted Streamable HTTP MCP endpoint when your agent cannot run a local `npx` process.
 
-Remote MCP exposes the 21 read-only V1 data operations below as tools. Each tool dispatches to the matching `/api/v1/*` handler in-process, so auth, rate limits, and payload contracts match direct REST calls. Meta endpoints (`/usage`, `/health`) and webhook mutations are not exposed as tools.
+## Use this endpoint when
 
-The remote endpoint is tools-only. It supports `initialize`, `notifications/initialized`, `ping`, `tools/list`, and `tools/call`; it does not implement resources or prompts.
+Use this endpoint from a serverless function, browser-based agent, or hosted automation service.
+
+Remote MCP exposes 30 read-only V1 data operations below as tools. The tools use the same auth, limits, and payloads as REST. `/usage`, `/health`, and webhook mutations are not tools.
+
+The endpoint supports `initialize`, `notifications/initialized`, `ping`, `tools/list`, and `tools/call`. It has no resources or prompts.
 
 Current tools:
 
@@ -16,11 +20,15 @@ Current tools:
 - `get_trader`
 - `batch_get_traders`
 - `get_whale_trades`
+- `get_whale_trade`
 - `get_whale_trades_history`
 - `get_market_intel`
 - `batch_get_market_intel`
+- `get_smart_money_flows`
+- `get_sharp_money_flows`
 - `get_market_snapshot`
 - `get_insider_radar`
+- `get_insider_radar_flag`
 - `get_positions`
 - `get_position_timeline`
 - `get_position_timeline_by_id`
@@ -32,7 +40,12 @@ Current tools:
 - `get_daily_report_snapshot`
 - `get_weekly_report_snapshot`
 - `get_monthly_report_snapshot`
+- `get_report`
 - `get_trader_export_snapshot`
+- `get_platforms`
+- `get_large_positions`
+- `get_trending_wallets`
+- `get_trader_pnl`
 
 ## Authentication
 
@@ -46,6 +59,10 @@ curl -X POST \
   https://api.0xinsider.com/api/v1/mcp
 ```
 
-A `?token=...` query parameter is still available for URL-only clients but is **legacy**. URL secrets leak into shell history, browser history, proxies, and logs. Use headers wherever you can.
+A `?token=...` query parameter is **legacy**. Use the header form because URL secrets enter histories, proxies, and logs.
 
 For the streaming response, see [Remote MCP Stream](/api-reference/endpoint/remote-mcp-stream).
+
+## Example: list tools from a hosted agent
+
+Send `tools/list` with the Bearer header. Select a tool, then send its JSON-RPC arguments in `tools/call`.

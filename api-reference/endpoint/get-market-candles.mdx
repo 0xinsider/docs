@@ -3,13 +3,21 @@ title: "Get Market Candles"
 openapi: "GET /api/v1/market/{condition_id}/candles"
 ---
 
-Returns provider-first OHLC candles for each outcome token from 0xinsider's stored daily price snapshots. Open and resolved markets are supported.
+Get provider-first OHLC candles for each outcome token. The series uses stored daily price snapshots.
 
-Use `resolution=1d` for daily points or `resolution=1w` for weekly OHLC across the observed daily closes. Daily storage does not provide intraday fidelity, so a one-day candle commonly has equal open, high, low, and close values.
+## Use this endpoint when
+
+Use this endpoint to chart a market over days or weeks. Open and resolved markets are supported.
+
+Use `resolution=1d` for daily points or `resolution=1w` for weekly points. Daily storage does not provide intraday data.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/market/0xabc.../candles?resolution=1w"
 ```
 
-A market with no stored series returns empty outcome arrays. The API does not fabricate candles.
+A market with no stored series returns empty outcome arrays. The API does not create candles from missing data.
+
+## Example: draw a weekly price chart
+
+Request `resolution=1w`, group the returned candles by outcome token, and leave an empty series empty.

@@ -1,15 +1,15 @@
 ---
 title: "Trust Metadata"
-description: "Every derived field can tell you where it came from, how fresh it is, and whether it was reconciled against the provider."
+description: "Check the source, age, reconciliation, and completeness of API values."
 ---
 
-Most APIs hand you a number and leave you to guess whether it is live, cached, or stale. 0xinsider can tell you. Ask for trust metadata and every covered field comes with its own provenance. That means the source it came from and how fresh it is. It also means whether the value was reconciled against the on-chain or provider truth, and whether it is complete.
+Trust metadata tells you where a value came from, how fresh it is, whether it matches provider data, and whether it is complete.
 
-This matters when you act on the data. A P&L figure that is `fresh` and `provider_backed` is safe to trade on. The same figure marked `stale` and `db_mirror` is a hint, not a fact.
+Use it before an automated action. A `fresh`, `provider_backed` value is stronger evidence than a `stale`, `db_mirror` value.
 
 ## How to get it
 
-Trust metadata is opt-in, because it adds weight to the response. Pass `expand=trust`:
+Trust metadata is optional. Pass `expand=trust`:
 
 ```bash
 # Field-level trust on a trader profile
@@ -21,11 +21,11 @@ curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/market/0x123.../snapshot?expand=trust"
 ```
 
-Without `expand=trust`, the `trust` block is omitted. See [Expanding responses](/concepts/expand) for the full list of expand options.
+Without `expand=trust`, the `trust` block is omitted.
 
 ## The shape
 
-Each covered field maps to a `TrustMetadata` object with four dimensions:
+Each covered field has a `TrustMetadata` object with four dimensions:
 
 ```json
 {
@@ -40,13 +40,13 @@ Each covered field maps to a `TrustMetadata` object with four dimensions:
 }
 ```
 
-On a trader profile, `trust` carries one entry per derived field (P&L, strategy, category strengths, quant metrics, last-active, and more). On a market snapshot, it covers `current_price` and `spread_bps`.
+On trader profiles, `trust` covers derived fields such as P&L, strategy, categories, and quant metrics. On market snapshots, it covers `current_price` and `spread_bps`.
 
 ## The four dimensions
 
 ### source
 
-Where the value originated.
+The value's origin.
 
 | Value | Meaning |
 |---|---|
@@ -61,7 +61,7 @@ The `owner` and `field` tell you the upstream provider and the exact provider fi
 
 ### freshness
 
-How current the value is.
+The value's age.
 
 | Value | Meaning |
 |---|---|
@@ -76,7 +76,7 @@ How current the value is.
 
 ### reconciliation
 
-Whether the value was checked against the provider's own truth.
+Whether the value was checked against provider data.
 
 | Value | Meaning |
 |---|---|
@@ -89,7 +89,7 @@ Whether the value was checked against the provider's own truth.
 
 ### completeness
 
-Whether the value reflects the full picture.
+Whether the value covers the full picture.
 
 | Value | Meaning |
 |---|---|
@@ -101,9 +101,9 @@ Whether the value reflects the full picture.
 
 `detail` carries a short human-readable note when the status needs one (for example, why a value is `partial`).
 
-## Using it in practice
+## Use it in practice
 
-One rule covers most integrations. Act on values that are `fresh` and either `provider_backed` or `db_mirror`. Treat anything `stale`, `partial`, or `unavailable` as a softer signal.
+For automated actions, prefer `fresh`, `complete`, and `provider_backed` or `db_mirror`. Treat `stale`, `partial`, and `unavailable` as weaker data.
 
 ```python
 def is_actionable(field_trust):
@@ -114,4 +114,4 @@ def is_actionable(field_trust):
     )
 ```
 
-When a trader is mid-sync, expect `partial` completeness on history-derived fields until the sync finishes. See [Platforms](/concepts/platforms) for which fields carry meaningful trust on Kalshi, where coverage is thinner than Polymarket.
+During a trader sync, history fields can be `partial`. Kalshi has thinner coverage; see [Platforms](/concepts/platforms).

@@ -3,7 +3,11 @@ title: "Update Webhook"
 openapi: "PATCH /api/v1/webhooks/{id}"
 ---
 
-Change a webhook's destination URL, subscribed events, or active flag without recreating it. Promote a staging URL to production, or pause delivery during maintenance without losing the registration.
+Change a webhook URL, event list, or enabled state without creating a new webhook.
+
+## Use this endpoint when
+
+Use this endpoint to promote a staging receiver or pause delivery during maintenance.
 
 ```bash
 curl -X PATCH \
@@ -14,6 +18,10 @@ curl -X PATCH \
   "https://api.0xinsider.com/api/v1/webhooks/42"
 ```
 
-The signing secret is not affected by `PATCH`. To change it, use [Rotate Webhook Secret](/api-reference/endpoint/rotate-webhook-secret).
+`PATCH` does not change the signing secret. Use [Rotate Webhook Secret](/api-reference/endpoint/rotate-webhook-secret) to change it.
 
-Use `Idempotency-Key` when retrying the same update body. A matching retry replays the original response; a different body with the same key returns `422`.
+Send `Idempotency-Key` when you retry the same body. A matching retry returns the original response. A different body with that key returns `422`.
+
+## Example: pause during maintenance
+
+Set `enabled` to `false`, run the maintenance, then set it to `true`. Keep the same webhook ID.

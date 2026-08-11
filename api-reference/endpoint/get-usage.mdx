@@ -3,9 +3,13 @@ title: "Get Usage"
 openapi: "GET /api/v1/usage"
 ---
 
-Read your current request budget without spending primary quota.
+Read the current request budget without spending primary quota.
 
-Returns the live per-minute primary limiter window plus UTC-day usage. It does not increment the primary request counter and does not log itself into daily usage. The endpoint has its own 100 reads/minute per-user guard; a 429 here is a backoff signal, not proof you spent primary quota.
+## Use this endpoint when
+
+Use this endpoint before a polling loop or batch job. It shows the current limiter window.
+
+The response includes the per-minute limiter window and UTC-day usage. This read does not increment primary quota or daily usage. It has its own 100-reads-per-minute guard.
 
 The daily `limit` and `remaining` fields are `null` because V1 has no daily hard cap.
 
@@ -14,4 +18,8 @@ curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/usage"
 ```
 
-Check quota here instead of polling a data endpoint to guess your remaining budget.
+Check quota here instead of using a data endpoint as a quota probe.
+
+## Example: protect a polling loop
+
+Pause the loop when the remaining request count is low. Respect `Retry-After` if this endpoint returns `429`.

@@ -3,13 +3,21 @@ title: "List Trending Wallets"
 openapi: "GET /api/v1/leaderboard/trending"
 ---
 
-Wallets ranked by trailing-window realized P&L, with opaque page-cursor pagination. Each row carries window P&L, volume, distinct markets traded, grade, hot-streak tier, and a zero-filled daily P&L series. Polymarket-only discovery.
+Rank wallets by realized P&L over a trailing window. Each row includes P&L, volume, markets traded, grade, streak tier, and a daily P&L series. This discovery route covers Polymarket.
 
-Set the lookback with `window`. Pick a wider window for durable performers, a tighter one for who is hot right now.
+## Use this endpoint when
+
+Use this endpoint to find wallets that are hot in a chosen period.
+
+Set the lookback with `window`. Use a wider window for durable results and a shorter window for recent form.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/leaderboard/trending?window=7d&limit=20"
 ```
 
-The ranking is served from a warmed read model. A cold read returns `503` with a `Retry-After`, never a fabricated ranking, so retry after the hint and the warmed result follows. Cursor-paginated: pass `next_cursor` as `cursor`. See [Pagination](/concepts/pagination).
+The route can return `503` with `Retry-After` while the read model warms. Retry after the hint. Pass `next_cursor` as `cursor`. See [Pagination](/concepts/pagination).
+
+## Example: find seven-day leaders
+
+Request `window=7d`. Add the returned wallets to a follow list, then enrich them with [Batch Get Traders](/api-reference/endpoint/batch-get-traders).

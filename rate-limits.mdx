@@ -1,25 +1,25 @@
 ---
 title: "Rate Limits"
-description: "How many requests you can make, and how to back off cleanly."
+description: "Read request limits and retry after a 429 response."
 ---
 
-You get **100 requests per minute** on a sliding window. The limit is **per user**, shared across every key and every endpoint.
+Each user gets **100 requests per minute** in a sliding window. All keys and endpoints share this limit.
 
-Batch read endpoints (e.g. `POST /api/v1/traders/batch`, `POST /api/v1/markets/intel/batch`) get a **separate** budget in *item units*, also 100 per minute. A 25-item batch reserves 25 item units before it runs.
+Batch reads use a second budget of **2500 item units per minute**. A 25-item batch uses 25 item units before it runs.
 
-`GET /api/v1/usage` does not spend primary quota or log into daily usage. It has its own 100 reads/minute per-user guard so checking quota can't itself blow up usage-count load.
+`GET /api/v1/usage` does not use the primary quota or daily usage count. It has its own 100 reads/minute guard.
 
 | Setting | Value |
 |---|---|
 | Requests per minute | 100 |
 | Usage reads per minute | 100 |
-| Batch item units per minute | 100 |
+| Batch item units per minute | 2500 |
 | Window type | Sliding (not bucket-of-60-seconds) |
 | Scope | Per user (sum of all keys) |
 | Header on success | `X-RateLimit-*` (+ `X-Batch-RateLimit-*` on batch endpoints) |
 | Header on `429` | `Retry-After` |
 
-## Headers you should read
+## Read these headers
 
 Every authenticated response carries:
 
@@ -46,14 +46,14 @@ Batch responses additionally carry:
 | `X-Batch-RateLimit-Remaining` | Item units remaining in the window. |
 | `X-Batch-RateLimit-Reset` | Unix timestamp when the batch window resets. |
 
-Browser clients can read these headers on public REST `/api/v1/*` responses
-because the public API exposes them through CORS. The public API also exposes
+Browser clients can read these headers on public REST `/api/v1/*` responses.
+The public API also exposes
 `Retry-After`, `ETag`, `X-Request-Id`, `X-Request-Cost`, `Mcp-Session-Id`, and
 `X-Mcp-Error-Code`. Remote MCP at `/api/v1/mcp` still validates `Origin`
 against the 0xinsider/localhost allowlist. Do not use credentialed CORS for
 public API calls; send only the Bearer token header.
 
-If you go over either budget, you get a `429` plus a `Retry-After` header in seconds:
+If you exceed either budget, the API returns `429` and `Retry-After` in seconds:
 
 ```
 HTTP/1.1 429 Too Many Requests
@@ -71,7 +71,7 @@ Retry-After: 12
 }
 ```
 
-## A client that respects the retry
+## Retry after `429`
 
 <CodeGroup>
 ```javascript JavaScript
@@ -112,18 +112,18 @@ body = get_with_backoff(
 ```
 </CodeGroup>
 
-## Staying well under the limit
+## Keep requests within the limit
 
-- **Cache.** Most of this data updates every 30-120 seconds. Re-fetching every second wastes budget.
-- **Paginate, don't re-list.** Use cursors instead of refetching the full leaderboard each loop.
-- **Ask for more per request.** Bump `limit` to 100 instead of making 10 calls of `limit=10`.
-- **Batch when you know your IDs.** One batch call for 25 traders costs 25 batch-item units but only one regular request.
-- **Watch `X-RateLimit-Remaining`.** Below 10, pause polling until the next reset.
-- **Use `/usage` for budget checks.** `GET /api/v1/usage` reads the current primary limiter window without incrementing it. Respect its own 100 reads/minute cap; don't probe quota with another endpoint.
-- **One process owns the polling.** Don't have every container in a fleet poll the same endpoint with the same key.
+- **Cache.** Reuse data instead of polling every second.
+- **Paginate.** Use cursors instead of fetching the same first page.
+- **Use a larger `limit`.** One request with `limit=100` costs less than ten requests with `limit=10`.
+- **Batch known IDs.** One batch call uses one regular request and one item unit per item.
+- **Watch `X-RateLimit-Remaining`.** Pause when it is low.
+- **Use `/usage`.** It reads the primary window but has its own 100 reads/minute limit.
+- **Use one poller.** Do not let every process share the same polling loop.
 
 ## Conditional GETs
 
-Deterministic read endpoints return an `ETag` header. Send it back as `If-None-Match` to get `304 Not Modified` with an empty body when nothing changed.
+Deterministic read endpoints return an `ETag`. Send it as `If-None-Match` to get `304 Not Modified` when the body did not change.
 
-Examples include trader and position reads, whale-trade and leaderboard lists, market exploration and intelligence, Sports Edge signals and observations, position timelines, and health responses. Check each endpoint's OpenAPI response table for authoritative `304` support. Report snapshots aren't conditional yet because their body includes a request-time `generated_at`.
+Examples include trader and position reads, whale-trade and leaderboard lists, market exploration and intelligence, Sports Edge signals and observations, position timelines, and health responses. Check each endpoint's OpenAPI response table for authoritative `304` support. Report snapshots are not conditional because their body includes a request-time `generated_at`.

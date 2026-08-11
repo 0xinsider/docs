@@ -1,9 +1,9 @@
 ---
 title: "Signal Scoring"
-description: "The smart-money and signal fields the API exposes, and what each one measures."
+description: "Choose the right trader, trade, and market signal field."
 ---
 
-0xinsider scores activity so you can sort noise from signal. There are a few distinct scores, and each answers a different question. How good is this trader? How strong is this single trade? Which way is smart money leaning on this market? This page names each field and what it measures, so you do not confuse one for another.
+Each score answers a different question. Use the field that matches your task.
 
 ## Trader quality: grade and score
 
@@ -14,20 +14,20 @@ On every trader and leaderboard entry:
 - `streak_tier`: recent form, separate from the all-time grade. One of `hot`, `rising`, `neutral`, `cooling`, `cold`.
 - `rank`: position on the leaderboard.
 
-Grade is the long-run verdict. `streak_tier` is the trailing-form overlay: an A-grade trader can be `cooling`, and a B-grade trader can be `hot`.
+`grade` is long-term quality. `streak_tier` is recent form. An A-grade trader can be `cooling`; a B-grade trader can be `hot`.
 
 ## Deeper trader metrics: quant_metrics
 
-`grade` and `score` are the headline verdict. When you want the risk and performance detail behind them, request [`quant_metrics`](/concepts/quant-metrics) on a trader (`expand=quant_metrics`). It returns nine curated fields, including two 0-100 scores that answer different questions:
+For risk and performance detail, request [`quant_metrics`](/concepts/quant-metrics) with `expand=quant_metrics`. It returns nine fields:
 
 - `smart_score`: how skilled is this trader, risk-adjusted, versus the field.
 - `copy_score`: how safely could you copy them, after penalising traits that make a strategy hard to replicate.
 
-The other seven fields (30- and 7-day Sharpe, profit factor, edge consistency, and their cross-sectional percentiles) are the inputs behind those scores. See [Quant metrics](/concepts/quant-metrics) for the full field set and how to read `null`.
+The other fields include 7-day and 30-day Sharpe, profit factor, edge consistency, and percentiles. Read `null` as not computed.
 
 ## Per-trade strength: signal_score
 
-Each [whale trade](/api-reference/endpoint/get-whale-trades) carries a `signal_score`: how strong that single fill is as a signal. Use it to rank a feed of trades, not to judge a trader overall.
+Each [whale trade](/api-reference/endpoint/get-whale-trades) carries `signal_score`. Use it to rank individual fills, not whole traders.
 
 ```json
 {
@@ -46,7 +46,7 @@ Each [whale trade](/api-reference/endpoint/get-whale-trades) carries a `signal_s
 
 ## Market direction: smart money
 
-[Market intel](/api-reference/endpoint/get-market-intel) and [smart-money flows](/api-reference/endpoint/smart-money-flows) return a `smart_money` object. This is the canonical view of where graded money is flowing on a market:
+[Market intel](/api-reference/endpoint/get-market-intel) and [smart-money flows](/api-reference/endpoint/smart-money-flows) return `smart_money`:
 
 | Field | Meaning |
 |---|---|
@@ -69,18 +69,18 @@ Each [whale trade](/api-reference/endpoint/get-whale-trades) carries a `signal_s
 }
 ```
 
-`net_flow_usd` is the field to read for "which way is smart money leaning, and how hard." A large positive `net_flow_usd` with `direction: YES` means graded traders are buying YES.
+Read `net_flow_usd` and `direction` to see the net side. A positive value with `direction: YES` means graded traders bought more YES than they sold.
 
 ## Market discovery: smart_score
 
-The [explore](/api-reference/endpoint/explore-markets) feed ranks markets with a separate set of discovery aggregates:
+The [explore](/api-reference/endpoint/explore-markets) feed uses separate discovery fields:
 
 - `smart_score`: a per-market smart-money intensity used for ranking.
 - `smart_count`: how many graded traders are active on the market.
 - `smart_label`: a short human-readable tag.
 - `discover_score`: the backend-owned score behind the default hot sort.
 
-These power discovery sorting and are distinct from the `smart_money` flow object above. When you want a number to act on for a specific market, use `smart_money.net_flow_usd`. When you want to rank a list of markets to surface, use the explore `sort` parameter, which is driven by these scores.
+These fields rank markets. They are not the `smart_money` flow object. Use `smart_money.net_flow_usd` for one market and `sort` for market discovery.
 
 ## Picking the right field
 
@@ -88,7 +88,7 @@ These power discovery sorting and are distinct from the `smart_money` flow objec
 |---|---|
 | Is this trader worth following? | `grade` (and `score`) |
 | How skilled is this trader, in detail? | `quant_metrics.smart_score` (and `copy_score` for copyability) |
-| Is this trader hot right now? | `streak_tier` |
+| Is this trader in recent form? | `streak_tier` |
 | Is this single trade a strong signal? | `signal_score` |
 | Which way is smart money leaning on this market? | `smart_money.net_flow_usd` and `direction` |
 | Which markets should I surface? | explore `sort` (driven by `discover_score`) |

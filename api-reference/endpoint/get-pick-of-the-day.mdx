@@ -3,21 +3,30 @@ title: "Get Pick of the Day"
 openapi: "GET /api/v1/pick-of-the-day"
 ---
 
-One sourced sharp-money call a day, promoted to the API. This is a Pro-tier endpoint. Your API key already proves the subscription, so the response is always the full pick. The web teaser is a product-UI concept, not an API one.
+Get the current Pick of the Day. The endpoint returns the full pick for a key with the required subscription.
 
-The pick returns the backed side, the pre-game odds, and the return on a $100 stake. It also returns the proven smart-money holders on that side, the grade and category edge, and the thesis behind it.
+## Use this endpoint when
 
-- `backed_price` and `return_per_100` are a snapshot frozen before kickoff, so the value does not drift between calls.
-- `sharp_pct`, `market_pct`, and `consensus_edge_pct` are the WHY breakdown: sharp-money conviction versus the market-implied price. These are conviction signals, not expected-value or guaranteed-edge claims.
-- `outcome` is `pending` until the market resolves, then `win`, `loss`, or `void`.
-- `sports_context` carries provider-owned team crests, league branding, and live score for team-sports picks; it is omitted otherwise.
-- Returns `404` when no pick is published right now.
+Use this endpoint to show the current pick in a daily brief or research workflow.
+
+The response includes the backed side, pre-game price, $100 return, smart-money holders, grade edge, and thesis.
+
+- `backed_price` and `return_per_100` are fixed before kickoff.
+- `sharp_pct`, `market_pct`, and `consensus_edge_pct` show conviction. They do not guarantee profit.
+- `outcome` is `pending`, `win`, `loss`, or `void`.
+- `sports_context` appears only for team-sports picks.
+- The endpoint returns `404` with `error.reason="pick_not_released"` when no pick is published.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/pick-of-the-day"
 ```
 
-The response is side-effect-free and ETag-cacheable. Send the previous `ETag` back via `If-None-Match` to get a `304 Not Modified` when the pick is unchanged.
+The response is side-effect-free and ETag-cacheable. Send `If-None-Match` for `304 Not Modified` when the pick is unchanged.
+For `404`, schedule one request from `Retry-After` or `error.retry_at`. Do not poll.
 
 For the full track record and rolling hit rate, see [Get Pick of the Day track record](/api-reference/endpoint/get-pick-of-the-day-archive).
+
+## Example: show one daily pick
+
+Request the endpoint once per report window. If it returns `404`, show that no pick is published instead of using an older pick.
