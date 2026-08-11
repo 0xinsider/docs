@@ -5,7 +5,7 @@ description: "Read request limits and retry after a 429 response."
 
 Each user gets **100 requests per minute** in a sliding window. All keys and endpoints share this limit.
 
-Batch reads use a second budget of **100 item units per minute**. A 25-item batch uses 25 item units before it runs.
+Batch reads use a second budget of **2500 item units per minute**. A 25-item batch uses 25 item units before it runs.
 
 `GET /api/v1/usage` does not use the primary quota or daily usage count. It has its own 100 reads/minute guard.
 
@@ -13,7 +13,7 @@ Batch reads use a second budget of **100 item units per minute**. A 25-item batc
 |---|---|
 | Requests per minute | 100 |
 | Usage reads per minute | 100 |
-| Batch item units per minute | 100 |
+| Batch item units per minute | 2500 |
 | Window type | Sliding (not bucket-of-60-seconds) |
 | Scope | Per user (sum of all keys) |
 | Header on success | `X-RateLimit-*` (+ `X-Batch-RateLimit-*` on batch endpoints) |

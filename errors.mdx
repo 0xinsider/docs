@@ -34,7 +34,7 @@ Use `error.code` in code. Include `meta.request_id` in support requests.
 | `404` | `not_found` | The trader / market / resource does not exist. | Verify the ID. |
 | `408` | - | The public API request exceeded the 30-second transport timeout. The body is empty. | Retry once. Do not attempt to parse JSON. |
 | `423` | `account_locked` | Account is suspended. | Contact support. |
-| `429` | `rate_limited` | Over 100 req/min (or 100 batch item units/min). | Sleep `Retry-After` seconds and retry. See [Rate Limits](/rate-limits). |
+| `429` | `rate_limited` | Over 100 req/min (or 2500 batch item units/min). | Sleep `Retry-After` seconds and retry. See [Rate Limits](/rate-limits). |
 | `500` | `internal_error` | Bug on our side. | Retry. Include `meta.request_id` if you contact us. |
 | `503` | `rate_limit_unavailable` | With `error.reason="read_model_warming"`, this endpoint cannot serve its read model yet. The exact cause is endpoint-specific. Without a reason, the authenticated rate limiter is unavailable and has failed closed. | Branch on `error.reason`. For read-model unavailability, retry only this route after `Retry-After` and consult its endpoint contract. Do not infer dependency health or apply a shared rate-limit backoff. |
 

@@ -3,7 +3,7 @@ title: "Get Market Snapshot"
 openapi: "GET /api/v1/market/{condition_id}/snapshot"
 ---
 
-Get the current state of one market: price, volume, status, and recent activity. Trust metadata describes each provider-owned value.
+Get the current state of one market: price, volume, status, and recent activity. Request `expand=trust` to receive trust metadata for `current_price` and `spread_bps`.
 
 ## Use this endpoint when
 
@@ -11,9 +11,11 @@ Use this endpoint to render one market page or refresh one market card.
 
 Pass the raw provider-backed `condition_id` or a `mkt_...` market ID from a V1 response.
 
+Add `expand=trust` when your UI must gate `current_price` or `spread_bps` on trust metadata.
+
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/market/0xabc.../snapshot"
+  "https://api.0xinsider.com/api/v1/market/0xabc.../snapshot?expand=trust"
 ```
 
 If a field is `unavailable`, treat it as missing. Do not change it to `0`. See [Trust metadata](/api-reference/introduction#trust-metadata).
