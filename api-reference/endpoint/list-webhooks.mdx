@@ -27,4 +27,4 @@ For event types, the signature scheme, and verification code, see the [Webhooks 
 
 ## Example: audit webhook state
 
-List the webhooks after a deployment. Flag returned endpoints that are pending verification. For a known webhook ID, call [Get Webhook](/api-reference/endpoint/get-webhook) to inspect its `enabled` state; this list does not prove that a disabled endpoint is absent.
+List webhooks after a deployment. Flag returned endpoints with `status=pending_verification`. The list omits disabled endpoints. [Get Webhook](/api-reference/endpoint/get-webhook) also returns `404` for a disabled ID, so do not treat an omitted endpoint as deleted.
