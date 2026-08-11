@@ -3,11 +3,19 @@ title: "List Webhook Deliveries"
 openapi: "GET /api/v1/webhooks/{id}/deliveries"
 ---
 
-Lists recent delivery attempts for one webhook destination owned by the authenticated API-key user, newest first.
+List recent delivery attempts for one webhook, newest first.
+
+## Use this endpoint when
+
+Use this endpoint when a webhook alert did not reach your worker and you need its delivery status.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/webhooks/123/deliveries?limit=50"
 ```
 
-The endpoint uses opaque cursor pagination. A webhook not owned by the caller returns the same `404` as an unknown ID. Delivery rows omit the request body and signing secret.
+The response uses cursor pagination. A webhook that you do not own returns `404`, like an unknown ID. Rows omit the request body and signing secret.
+
+## Example: investigate a missed alert
+
+Read the newest attempts, compare their status and response fields with your server logs, and retry only after you fix the receiver.

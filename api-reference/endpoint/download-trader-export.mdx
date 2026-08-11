@@ -3,7 +3,11 @@ title: "Download Trader Export"
 openapi: "GET /api/v1/trader/{address}/export/download"
 ---
 
-Redirects to a short-lived presigned URL for a completed trader export. The file is gzip-compressed and uses the selected format's content type.
+Download a completed trader export. The API redirects to a short-lived presigned URL and returns gzip data in the selected format.
+
+## Use this endpoint when
+
+Use this endpoint after [Trader Export Status](/api-reference/endpoint/get-trader-export-status) returns `ready`.
 
 ```bash
 curl -L --compressed -o trader-export.ndjson \
@@ -11,4 +15,8 @@ curl -L --compressed -o trader-export.ndjson \
   "https://api.0xinsider.com/api/v1/trader/0xabc.../export/download?job_id=123"
 ```
 
-The endpoint returns `400` until the job is `ready`. Check [Trader Export Status](/api-reference/endpoint/get-trader-export-status) before downloading.
+The endpoint returns `400` until the job is `ready`.
+
+## Example: save an offline research file
+
+Poll the job, then follow the redirect and save the file for analysis. Do not store the presigned URL for later use.

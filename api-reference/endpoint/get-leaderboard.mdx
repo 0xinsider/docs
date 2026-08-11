@@ -3,13 +3,21 @@ title: "Get Leaderboard"
 openapi: "GET /api/v1/leaderboard"
 ---
 
-Top traders by composite score. Only S, A, and B grades appear; see [Trader Grades](/concepts/grades).
+List top traders by composite score. The response includes S, A, and B grades. See [Trader Grades](/concepts/grades).
 
-Filter by category (`crypto`, `politics`, `sports`) or strategy (`swing_trader`, and others). Some traders rank with no detected strategy, so `strategy_type` is nullable.
+## Use this endpoint when
+
+Use this endpoint to build a follow list or compare traders before you request full profiles.
+
+Filter by category or strategy. Treat `strategy_type` as nullable.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/leaderboard?limit=20&category=crypto"
 ```
 
-Cursor-paginated. Pass `next_cursor` from one response as `cursor` on the next. See [Pagination](/concepts/pagination).
+The response uses cursor pagination. Pass `next_cursor` as `cursor` on the next request. See [Pagination](/concepts/pagination).
+
+## Example: choose five crypto traders
+
+Request `category=crypto&limit=5`. Pass the returned trader IDs to [Batch Get Traders](/api-reference/endpoint/batch-get-traders) for more fields.

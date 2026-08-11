@@ -1,24 +1,24 @@
 ---
 title: "Platforms"
-description: "Which prediction markets 0xinsider covers, and which features are available per platform."
+description: "Check Polymarket and Kalshi feature coverage at runtime."
 ---
 
-0xinsider covers two prediction-market platforms: **Polymarket** and **Kalshi**. They are not at parity. Polymarket is fully covered. Kalshi coverage is partial, because some of the on-chain signals 0xinsider computes do not exist for Kalshi's centralized markets.
+0xinsider covers **Polymarket** and **Kalshi**. Coverage differs because some signals need on-chain data.
 
-Plan around the real coverage. A copy-trading or whale-tracking integration that assumes Kalshi grades or Kalshi whale data will come back empty.
+Check the capability response before you build a platform-specific workflow. Kalshi does not provide every grade or whale field.
 
 ## The platform enum
 
-Anywhere a `platform` field or filter appears, the values are lowercase:
+Use these lowercase `platform` values:
 
 - `polymarket`
 - `kalshi`
 
-Endpoints that accept a `platform` filter (whale-trades history, smart-money flows, explore) also accept `all`.
+Some filters also accept `all`.
 
 ## Capability matrix
 
-This mirrors the live [`GET /api/v1/platforms`](/api-reference/endpoint/get-platforms) response, which is the source of truth. Query it at runtime rather than hard-coding coverage.
+[`GET /api/v1/platforms`](/api-reference/endpoint/get-platforms) is the source of truth. Query it at runtime instead of hard-coding coverage.
 
 | Capability | Polymarket | Kalshi |
 |---|---|---|
@@ -30,11 +30,11 @@ This mirrors the live [`GET /api/v1/platforms`](/api-reference/endpoint/get-plat
 | Insider radar | Supported | Unsupported |
 | Market snapshot | Supported | Partial |
 
-`supported` means the feature is fully populated. `partial` means some fields are present but not all (Kalshi market snapshots carry last price but no order-book top-of-book, for example). `unsupported` means the feature does not apply to that platform and returns no data.
+`supported` means all fields are available. `partial` means some fields are missing. `unsupported` means the feature does not apply and returns no data.
 
 ## Polymarket-only features
 
-Two surfaces are Polymarket-only today, independent of any `platform` filter you pass:
+These surfaces are Polymarket-only:
 
 - **Whale trades** ([`/whale-trades`](/api-reference/endpoint/get-whale-trades), [`/whale-trades/history`](/api-reference/endpoint/get-whale-trades-history)). The whale-trade feed is built from Polymarket fills only. A `platform=kalshi` filter returns nothing.
 - **Large positions** ([`/large-positions`](/api-reference/endpoint/list-large-positions)). The large-position scanner runs against Polymarket markets only.
@@ -50,4 +50,4 @@ These read paths return both Polymarket and Kalshi data:
 - Market intel and smart-money flows ([`/market/{condition_id}/intel`](/api-reference/endpoint/get-market-intel), [`/markets/smart-money-flows`](/api-reference/endpoint/smart-money-flows)).
 - Market search and explore ([`/markets/search`](/api-reference/endpoint/search-markets), [`/markets/explore`](/api-reference/endpoint/explore-markets)).
 
-When a field is thin or absent for Kalshi, [trust metadata](/concepts/trust-metadata) marks it. An `unsupported` source surfaces as `unavailable`. You can detect coverage gaps in code instead of guessing.
+For thin or absent Kalshi fields, [trust metadata](/concepts/trust-metadata) marks the value. `unsupported` data appears as `unavailable`.

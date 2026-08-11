@@ -1,9 +1,9 @@
 ---
 title: "Authentication"
-description: "API keys, headers, and what to do if a key leaks."
+description: "Create, send, and rotate 0xinsider API keys."
 ---
 
-Every request except `/health` uses a Bearer token:
+All requests except `/health` need a Bearer token:
 
 ```bash
 Authorization: Bearer oxi_sk_live_...
@@ -18,9 +18,9 @@ Authorization: Bearer oxi_sk_live_...
 | Active keys per account | 1. Regenerating revokes the old key. |
 | Where to generate | [0xinsider.com/developers](https://0xinsider.com/developers) |
 
-The key shows **once**, at generation. After that the dashboard shows only the prefix (`oxi_sk_live_XXXX`) so you can identify it.
+The dashboard shows the full key once. Later it shows only the prefix (`oxi_sk_live_XXXX`).
 
-## Generate a key
+## Create a key
 
 1. Log in at [0xinsider.com](https://0xinsider.com).
 2. Open [Developers](https://0xinsider.com/developers).
@@ -52,9 +52,9 @@ The key shows **once**, at generation. After that the dashboard shows only the p
   </Accordion>
 </AccordionGroup>
 
-## If a key leaks
+## If a key is exposed
 
-Treat it like any production secret:
+Rotate it at once:
 
 1. Go to [Developers](https://0xinsider.com/developers).
 2. Click **Regenerate Key**. The old key dies immediately.
@@ -62,7 +62,7 @@ Treat it like any production secret:
 
 ## Key management endpoints
 
-These manage *your own* keys from the dashboard. They use the session cookie (JWT), not an API key, so you can't call them from a script with `oxi_sk_live_...`.
+These routes manage your keys in the dashboard. They use the session cookie (JWT), not an API key.
 
 | Action | Method | Endpoint |
 |---|---|---|

@@ -1,22 +1,20 @@
 # 0xinsider API Documentation
 
-Documentation for the [0xinsider API](https://docs.0xinsider.com) — prediction market intelligence for AI agents, trading bots, and research tools.
+Docs for the [0xinsider API](https://docs.0xinsider.com): prediction-market data for agents, bots, and research tools.
 
 ## What is 0xinsider?
 
-0xinsider provides trader grades, whale trade signals, smart money flow analysis, and insider detection across Polymarket and Kalshi.
-
-The API gives you programmatic access to the same intelligence powering the [0xinsider terminal](https://0xinsider.com).
+0xinsider provides trader grades, whale trades, smart-money flow, positions, and insider signals across Polymarket and Kalshi.
 
 ## API endpoints
 
-- **Trader** — grades (S through F), P&L, win rate, strategy detection
-- **Leaderboard** — top traders ranked by score with cursor pagination
-- **Whale Trades** — large trades with signal scoring, filterable by grade and category
-- **Explore Markets** — browse whale-active titled markets by category, platform, status, and sort order
-- **Market Intel** — smart money flow direction, buy/sell volumes, top positions
-- **Search Markets** — find markets by keyword with category and status filters
-- **Insider Radar** — suspicious trading patterns and pre-resolution accumulation
+- **Trader** — grades, P&L, win rate, and strategy
+- **Leaderboard** — traders ranked by score
+- **Whale Trades** — large trades with grade and category filters
+- **Explore Markets** — whale-active markets by category, platform, and status
+- **Market Intel** — smart-money flow and top positions
+- **Search Markets** — markets by keyword and filters
+- **Insider Radar** — unusual timing and accumulation patterns
 
 ## MCP Server
 

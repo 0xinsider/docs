@@ -1,11 +1,11 @@
 ---
 title: "TypeScript Client"
-description: "Drift-tested source client for the 0xinsider API."
+description: "Use the typed TypeScript source client for the 0xinsider API."
 ---
 
-A typed TypeScript client lives in the app repo at `web/src/lib/api-client`. It's drift-tested against the checked-in OpenAPI spec: when the spec moves, the client moves with it or the test suite fails.
+A typed TypeScript client lives in the app repo at `web/src/lib/api-client`. It follows the checked-in OpenAPI spec.
 
-It's **not** on npm yet. Use it as source or as a reference implementation.
+It is **not** on npm. Use the source or copy its patterns.
 
 <Note>
   Want a package release? That needs decisions on package name, semver policy, changelog ownership, and npm access. Open an issue if you depend on it.
@@ -20,7 +20,7 @@ It's **not** on npm yet. Use it as source or as a reference implementation.
 - V1 error envelopes as typed exceptions with the HTTP `status`, parsed `error`, and raw response `body`.
 - Conditional reads: successful response `ETag` headers are copied to `meta.etag`, and `304` responses return a typed `not_modified` envelope instead of attempting to parse an empty body.
 
-## Example
+## Example: read a trader and search markets
 
 ```ts
 import { OxinsiderApiClient } from "./api-client";
@@ -69,11 +69,11 @@ if (!isApiNotModifiedResponse(first) && first.meta?.etag) {
 }
 ```
 
-The `304` envelope has `object: "not_modified"`, `data: null`, and metadata copied from response headers. The packaged SDK also exposes a route-specific conditional Sports Edge method; see its README for that API.
+The `304` envelope has `object: "not_modified"`, `data: null`, and response-header metadata.
 
 ## Handling errors
 
-The client throws typed exceptions instead of a generic error object. Match on the parsed `error` field:
+The client throws typed exceptions. Match on `error.code`:
 
 ```ts
 import { OxinsiderApiClient, OxinsiderApiError } from "./api-client";
@@ -103,4 +103,4 @@ try {
 
 ## Keep OpenAPI as the source of truth
 
-The client operation table regenerates from [`api-reference/openapi.json`](https://github.com/0xinsider/docs/blob/main/api-reference/openapi.json). Change the spec and the client follows. Don't hand-edit the client to add operations without updating the spec.
+The operation table follows [`api-reference/openapi.json`](https://github.com/0xinsider/docs/blob/main/api-reference/openapi.json). Update the spec before you add an operation.

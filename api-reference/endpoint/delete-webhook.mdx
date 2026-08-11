@@ -3,7 +3,11 @@ title: "Delete Webhook"
 openapi: "DELETE /api/v1/webhooks/{id}"
 ---
 
-Permanently remove a webhook. No further events are delivered to that URL, and the signing secret is invalidated.
+Remove a webhook and invalidate its signing secret. The API sends no more events to that URL.
+
+## Use this endpoint when
+
+Use this endpoint when you no longer need a destination. Use `enabled: false` for a temporary pause.
 
 ```bash
 curl -X DELETE \
@@ -12,6 +16,10 @@ curl -X DELETE \
   "https://api.0xinsider.com/api/v1/webhooks/42"
 ```
 
-To pause deliveries without losing the webhook, [update](/api-reference/endpoint/update-webhook) it to `enabled: false` instead.
+To pause delivery without deleting the registration, [update](/api-reference/endpoint/update-webhook) it with `enabled: false`.
 
-Send `Idempotency-Key` when retrying a delete. A matching retry returns the original response instead of deleting again.
+Send `Idempotency-Key` when you retry a delete. A matching retry returns the original response.
+
+## Example: remove a retired staging hook
+
+Delete the webhook ID after you remove its URL from your deployment configuration.

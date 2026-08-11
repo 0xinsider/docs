@@ -3,7 +3,11 @@ title: "Get Trader P&L"
 openapi: "GET /api/v1/trader/{address}/pnl"
 ---
 
-A trader's daily P&L time series plus pre-derived stats, read from the precomputed `daily_pnl` read model rather than a per-request equity replay. The response carries daily cumulative P&L entries, period stats (all-time, 90d, 30d, 7d), monthly aggregation, per-year totals, and the drawdown series.
+A trader's daily P&L series and period statistics come from the `daily_pnl` read model. The response includes daily, monthly, yearly, and drawdown data.
+
+## Use this endpoint when
+
+Use this endpoint to draw a trader performance chart or compare fixed periods.
 
 `{address}` accepts a `0x...` wallet address, a username, or a `trd_`-prefixed trader id.
 
@@ -12,4 +16,8 @@ curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/trader/0x863134d00841b2e200492805a01e1e2f5defaa53/pnl"
 ```
 
-A resolved trader with no daily P&L returns an empty structured object with `200`; an unknown address returns `404`. The series spans both providers wherever the read model has it.
+A resolved trader with no daily P&L returns an empty structured object with `200`. An unknown address returns `404`. The series covers both providers when the read model has data.
+
+## Example: draw a performance chart
+
+Plot the daily cumulative series. Use the period statistics for summary cards and the drawdown series for risk context.

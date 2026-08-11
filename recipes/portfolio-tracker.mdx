@@ -1,15 +1,15 @@
 ---
 title: "Portfolio tracker"
-description: "Track a set of wallets' P&L and current positions on one dashboard."
+description: "Track selected wallets, P&L, and current positions."
 ---
 
-Goal: keep a dashboard of the wallets you care about, their aggregate P&L and their live positions. This recipe uses the batch endpoint for the numbers and the positions board for current holdings.
+Use this recipe for a dashboard of selected wallets, their P&L, and their current positions.
 
 All requests need a Bearer key. See [Authentication](/authentication).
 
 ## 1. Aggregate P&L in one call
 
-[`POST /api/v1/traders/batch`](/api-reference/endpoint/batch-get-traders) takes up to 25 wallets (by address or `trd_` id) and returns a full profile for each. This is the clean path for portfolio totals:
+[`POST /api/v1/traders/batch`](/api-reference/endpoint/batch-get-traders) accepts up to 25 wallet addresses or `trd_` IDs:
 
 ```python
 import os, requests
@@ -42,11 +42,11 @@ for item in batch["data"]:
 print("portfolio P&L:", sum(b["total_pnl"] for b in book))
 ```
 
-Each item reports its own `status` (`ok` or `error`), so one bad wallet does not fail the batch. For more than 25 wallets, split into batches of 25.
+Each item has its own `status`. One bad wallet does not fail the batch. Split larger sets into groups of 25.
 
 ## 2. Current positions
 
-There is no per-trader open-positions endpoint. The [positions board](/api-reference/endpoint/get-positions) is global, filterable by grade, size, side, and category, but not by wallet, so scan it and intersect on your wallet set:
+There is no per-trader positions endpoint. The [positions board](/api-reference/endpoint/get-positions) is global, so scan it and keep your wallets:
 
 ```python
 wallet_set = set(w.lower() for w in wallets)
@@ -68,14 +68,14 @@ for p in positions_for_book():
           p["side"], f'${p["current_value_usd"]:,.0f}', p["freshness"])
 ```
 
-Check each position's `freshness` ([trust](/concepts/trust-metadata)) before you trust the value. `fresh` is live; `stale` means the provider read is past its window.
+Check each position's `freshness` ([trust](/concepts/trust-metadata)). `fresh` is within the freshness window; `stale` is past it.
 
 ## 3. Refresh cadence
 
-- Pull batch P&L on a slow loop (minutes). It is the heavier call.
-- Scan the positions board on whatever cadence your dashboard needs; it is cursor-paginated and cheap per page.
-- For a specific wallet-and-market pair, the [position timeline](/api-reference/endpoint/get-trader-position-timeline) gives exact entry and exit events.
+- Pull batch P&L every few minutes.
+- Scan the cursor-paginated positions board at the dashboard cadence.
+- Use [position timeline](/api-reference/endpoint/get-trader-position-timeline) for one wallet and market.
 
 ## Scope and limits
 
-Tracking N specific wallets means scanning the global positions board and filtering, because there is no "open positions for wallet X" endpoint. If your set is large, raise `min_size` so the board scan stays cheap and you only track meaningful positions. Aggregate P&L via batch is exact; the live position list is a board intersection.
+The positions list is a board intersection, not a wallet-specific query. For a large set, raise `min_size` to reduce work. Batch P&L is aggregate data for the selected wallets.

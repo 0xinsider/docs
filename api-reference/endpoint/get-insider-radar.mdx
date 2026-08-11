@@ -3,13 +3,21 @@ title: "Get Insider Radar"
 openapi: "GET /api/v1/insider-radar"
 ---
 
-Flags wallets that look like they know something the market doesn't: pre-resolution accumulation, well-timed entries, or one-sided conviction with no hedges.
+Find wallets with unusual pre-resolution activity, timing, or one-sided positions.
 
-Each flag carries a `suspicion_score` and a reason. A high score is worth a closer look, not proof of wrongdoing.
+## Use this endpoint when
+
+Use this endpoint to build a review queue for possible insider-like patterns.
+
+Each flag has a `suspicion_score` and a reason. A high score marks a review target. It does not prove wrongdoing.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/insider-radar?limit=20"
 ```
 
-Cursor-paginated by score. See [Pagination](/concepts/pagination). To fetch one returned `rf_...` item again, use [Get Insider Radar Flag](/api-reference/endpoint/get-insider-radar-flag).
+The response uses score-ordered cursor pagination. See [Pagination](/concepts/pagination). Use [Get Insider Radar Flag](/api-reference/endpoint/get-insider-radar-flag) for one result.
+
+## Example: triage new flags
+
+Poll this endpoint on a schedule, sort by `suspicion_score`, and request the highest-priority `rf_...` flags for review.

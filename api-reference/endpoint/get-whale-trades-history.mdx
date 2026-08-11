@@ -3,11 +3,19 @@ title: "Get Whale Trades History"
 openapi: "GET /api/v1/whale-trades/history"
 ---
 
-Bounded historical whale-trade ranges. Built for backtests, recap reports, and warming a cache after a deploy. For the live feed, use [Get Whale Trades](/api-reference/endpoint/get-whale-trades).
+Get whale trades for a fixed time range. Use it for backtests, reports, or cache recovery.
+
+## Use this endpoint when
+
+Use [Get Whale Trades](/api-reference/endpoint/get-whale-trades) for new activity. Use this endpoint when the start and end times matter.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/whale-trades/history?from=2026-04-01T00:00:00Z&to=2026-04-30T23:59:59Z&min_grade=A&limit=100"
 ```
 
-Responses carry trust metadata, so you can tell provider-backed from reconciled or partial ranges. See [Trust metadata](/api-reference/introduction#trust-metadata).
+Read trust metadata to distinguish provider-backed, reconciled, and partial ranges. See [Trust metadata](/api-reference/introduction#trust-metadata).
+
+## Example: replay one month
+
+Store the `from` and `to` values with the result. Use the same filters when you repeat the backtest.

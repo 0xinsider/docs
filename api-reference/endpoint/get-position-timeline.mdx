@@ -4,11 +4,19 @@ sidebarTitle: "Position timeline"
 openapi: "GET /api/v1/trader/{address}/position-timeline"
 ---
 
-Per-market fill history for one trader. Each fill carries a server-computed running amount and average entry price. You can see how a position was built or unwound without recomputing it client-side.
+Get the fill history for one trader and market. Each fill includes server-computed amount and average entry price.
+
+## Use this endpoint when
+
+Use this endpoint to explain how a trader built or closed a position. Do not recompute the running values in your client.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/trader/0x863134d00841b2e200492805a01e1e2f5defaa53/position-timeline?condition_id=0xabc..."
 ```
 
-You may hold a username, a `trd_`-prefixed trader id, or the integer internal trader id instead of the wallet address. Use [Get Trader Position Timeline](/api-reference/endpoint/get-trader-position-timeline) for those. It resolves all four identity shapes and returns a byte-identical body.
+This path accepts a wallet address. If you have a username, `trd_` ID, or integer trader ID, use [Get Trader Position Timeline](/api-reference/endpoint/get-trader-position-timeline).
+
+## Example: explain a position
+
+Pass the market `condition_id`, then render each fill in response order with its running amount and average price.

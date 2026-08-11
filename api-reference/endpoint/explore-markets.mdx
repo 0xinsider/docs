@@ -3,9 +3,13 @@ title: "Explore Markets"
 openapi: "GET /api/v1/markets/explore"
 ---
 
-Browse whale-active markets. This is the "what's going on right now" feed, already filtered to titled, user-facing markets with real activity. Omit `q` for the full feed, or pass it to narrow by keyword.
+Find titled markets with current whale activity. Omit `q` for the full feed or add a keyword.
 
-Grouped events (e.g. "Next US president by candidate") return one row per event with a primary market injected, so you always have something to link to.
+## Use this endpoint when
+
+Use this endpoint when a user wants to browse active markets before you know a `condition_id`.
+
+Grouped events return one row per event with a primary market when one exists.
 
 Common filters:
 
@@ -20,4 +24,8 @@ curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/markets/explore?category=crypto&status=active&limit=20"
 ```
 
-Cursor-paginated. See [Pagination](/concepts/pagination).
+The response uses cursor pagination. See [Pagination](/concepts/pagination).
+
+## Example: build an active-market screen
+
+Request `category=crypto&status=active`, render the returned titles, and pass each returned market ID to [Get Market Snapshot](/api-reference/endpoint/get-market-snapshot).

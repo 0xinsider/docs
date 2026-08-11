@@ -3,9 +3,19 @@ title: "Get Monthly Report Snapshot"
 openapi: "GET /api/v1/reports/monthly"
 ---
 
-The monthly recap: rolling-30-day leaderboard, category-rotation summary, and biggest realized P&L by trader and by market. Use it for end-of-month digests and longer newsletters.
+Get a monthly recap with leaderboard, category rotation, and large realized P&L changes.
+
+## Use this endpoint when
+
+Use this endpoint for an end-of-month digest or a monthly research report.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/reports/monthly?month=2026-05"
 ```
+
+Read trust metadata before you publish a section as complete.
+
+## Example: publish a monthly review
+
+Request one `YYYY-MM` period, store the snapshot, and use its period fields as the report label.

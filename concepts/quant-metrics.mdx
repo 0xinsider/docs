@@ -1,11 +1,11 @@
 ---
 title: "Quant Metrics"
-description: "The curated risk and performance metrics behind a trader's scores, what each field means, and how to read them."
+description: "Read trader skill, copyability, risk, and performance metrics."
 ---
 
-`quant_metrics` is a curated set of risk and performance metrics for a trader. It is where the two headline scores live, `smart_score` and `copy_score`, alongside the risk-adjusted return and consistency measures they are built from.
+`quant_metrics` contains curated risk and performance metrics for one trader. It includes `smart_score`, `copy_score`, and their component values.
 
-The field set is fixed and documented: exactly nine fields, each a number or `null`. It is not a raw database dump, and it does not grow silently as we add internal columns. New internal metrics stay internal until they are curated into this contract.
+The response has exactly nine fields. Each value is a number or `null`.
 
 ## How to get it
 
@@ -23,16 +23,16 @@ curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   -d '{"traders": ["0x204f...", "swisstony"], "expand": ["quant_metrics"]}'
 ```
 
-It appears on [`GET /api/v1/trader/{address}`](/api-reference/endpoint/get-trader) and [`POST /api/v1/traders/batch`](/api-reference/endpoint/batch-get-traders). The field is present only when the trader has computed metrics; when present, all nine keys are present.
+It appears on [`GET /api/v1/trader/{address}`](/api-reference/endpoint/get-trader) and [`POST /api/v1/traders/batch`](/api-reference/endpoint/batch-get-traders). If metrics are present, all nine keys are present.
 
 ## The two headline scores
 
-Both scores are 0-100 and higher is better. They answer different questions.
+Both scores range from 0 to 100. Higher is better.
 
 - `smart_score` measures **skill**: how good is this trader, on a risk-adjusted basis, relative to everyone else?
 - `copy_score` measures **copyability**: how safely could you follow this trader, after discounting traits that make a strategy hard to replicate?
 
-`smart_score` is a weighted blend of the trader's cross-sectional percentiles and a few absolute measures:
+`smart_score` combines percentiles and absolute measures:
 
 ```
 smart_score = clamp(0, 100,
@@ -44,7 +44,7 @@ smart_score = clamp(0, 100,
   + 10 * (1 - min(1, asset_concentration)))
 ```
 
-`copy_score` starts from that same base and subtracts penalties for hard-to-replicate behaviour, then clamps to 0-100:
+`copy_score` starts from the same base and subtracts penalties:
 
 | Penalty | When it applies |
 |---|---|
@@ -54,11 +54,11 @@ smart_score = clamp(0, 100,
 | -10 | Worst single-trade loss exceeds 30% |
 | -10 | Edge is inconsistent |
 
-A trader can have a high `smart_score` and a much lower `copy_score`: genuinely skilled, but running a book that is risky or impractical to mirror. When you are ranking traders to follow or copy, read `copy_score`. When you are ranking pure skill, read `smart_score`.
+A trader can have a high `smart_score` and a lower `copy_score`. Use `copy_score` to choose traders to follow. Use `smart_score` to compare skill.
 
 ## The component metrics
 
-These are the underlying measures. They are absolute values, not ranks.
+These fields are absolute values, not ranks.
 
 | Field | Meaning |
 |---|---|
@@ -69,7 +69,7 @@ These are the underlying measures. They are absolute values, not ranks.
 
 ## The percentile ranks
 
-These place the trader against the whole population, 0-100. They are the inputs the scores lean on, exposed directly so you can see where a number sits in the field.
+These fields place the trader against the population on a 0-100 scale.
 
 | Field | Meaning |
 |---|---|
@@ -79,9 +79,9 @@ These place the trader against the whole population, 0-100. They are the inputs 
 
 ## Reading the values
 
-- **`null` means insufficient trade history, not zero.** Every field is a number or `null`. A `null` field is one we cannot compute yet for this trader; treating it as `0` will rank a brand-new wallet as the worst possible trader rather than an unknown one.
-- **Values refresh periodically.** The scores and percentiles are recomputed by the cross-sectional ranking job, not on every request. A trader's percentile moves as the rest of the population moves, even if their own trades do not.
-- **Scores are 0-100; components are absolute.** `smart_score`, `copy_score`, and the three percentiles are bounded 0-100. `sharpe_30d`/`sharpe_7d` and `profit_factor` are unbounded (profit factor is capped at 1000), so compare them against the percentile fields for context.
+- **`null` means not computed.** Do not convert it to `0`.
+- **Values refresh on a schedule.** A percentile can change as the population changes.
+- **Scores and components differ.** Scores and percentiles use 0-100. Sharpe is unbounded. Profit factor is capped at 1000.
 
 ## Full response shape
 

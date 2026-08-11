@@ -1,11 +1,11 @@
 ---
 title: "Strategy Types"
-description: "How 0xinsider classifies a trader's style, and the ten strategy types it assigns."
+description: "Filter traders by the strategy type inferred from fill history."
 ---
 
-0xinsider classifies each trader by how they trade, not just how well. A two-sided arbitrageur and a directional swing trader can both be S-grade, but you copy them differently. The strategy type tells you the style behind the track record.
+Strategy type describes how a trader trades. It adds context to the grade.
 
-The classification is machine-derived from a trader's fill history. It is a label to filter and reason with, not a guarantee of future behavior.
+The label comes from fill history. Use it to filter and compare traders, not to predict future results.
 
 ## The ten strategy types
 
@@ -22,11 +22,11 @@ The classification is machine-derived from a trader's fill history. It is a labe
 | `directional` | Takes a clear side on an outcome and holds it. |
 | `speculator` | Opportunistic, mixed style with no single dominant pattern. |
 
-## Where it appears
+## Use it in the API
 
 The classification shows up in two places:
 
-**On a trader profile**, via [`expand=strategy`](/concepts/expand):
+Request it on a trader profile with `expand=strategy`:
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
@@ -43,19 +43,19 @@ curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
 }
 ```
 
-`strategy_type` is the label. `description` is an optional human-readable note (present for some types, null for others). `confidence` is reserved and currently returns `null`.
+`strategy_type` is the label. `description` and `confidence` can be `null`.
 
-**As a leaderboard filter.** Pass `strategy` to [`GET /api/v1/leaderboard`](/api-reference/endpoint/get-leaderboard) to rank only one style:
+Pass `strategy` to [`GET /api/v1/leaderboard`](/api-reference/endpoint/get-leaderboard) to rank one style:
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/leaderboard?strategy=arbitrageur&limit=20"
 ```
 
-Leaderboard entries also carry a `strategy_type` field directly, so you can read the style without an extra expand.
+Leaderboard entries include `strategy_type`, so no extra expand is needed there.
 
 ## Notes
 
-- The `strategy_type` value is the ML classifier's output. New labels can be added over time, so treat the field as a string and match against the ten values above rather than assuming a fixed closed set forever.
+- Treat `strategy_type` as a string. New labels can appear.
 - Strategy classification is Polymarket-only. See [Platforms](/concepts/platforms).
 - A trader with too little history may have no classification yet; the `strategy` object is absent until enough fills exist to classify.

@@ -3,20 +3,28 @@ title: "List Webhooks"
 openapi: "GET /api/v1/webhooks"
 ---
 
-List every webhook registered on your account. Each entry has the destination URL, subscribed events, delivery status, and signature-verification metadata.
+List the webhooks registered on your account. Each item includes its URL, events, delivery status, and signature state.
+
+## Use this endpoint when
+
+Use this endpoint for a webhook settings page or a startup audit.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/webhooks"
 ```
 
-## The webhook lifecycle
+## Change a webhook
 
-- [Create](/api-reference/endpoint/create-webhook) a webhook with the URL and event types you care about.
-- [Get](/api-reference/endpoint/get-webhook) one to inspect its current state.
-- [Update](/api-reference/endpoint/update-webhook) to change URL, events, or active flag.
-- [Delete](/api-reference/endpoint/delete-webhook) when you no longer need it.
-- [Verify](/api-reference/endpoint/verify-webhook) the endpoint with its token to activate deliveries.
-- [Rotate secret](/api-reference/endpoint/rotate-webhook-secret) if a signing secret leaks.
+- [Create](/api-reference/endpoint/create-webhook) a webhook.
+- [Get](/api-reference/endpoint/get-webhook) its current state.
+- [Update](/api-reference/endpoint/update-webhook) its URL, events, or enabled state.
+- [Delete](/api-reference/endpoint/delete-webhook) it when you no longer need it.
+- [Verify](/api-reference/endpoint/verify-webhook) it before delivery.
+- [Rotate the secret](/api-reference/endpoint/rotate-webhook-secret) after a leak.
 
 For event types, the signature scheme, and verification code, see the [Webhooks guide](/guides/webhooks).
+
+## Example: audit webhook state
+
+List the webhooks after a deployment. Flag any endpoint that is pending verification or disabled.

@@ -1,11 +1,11 @@
 ---
 title: "Webhooks"
-description: "Receive whale-trade events at your own URL, verify the signature, and handle retries safely."
+description: "Receive signed whale-trade events and handle retries safely."
 ---
 
-Webhooks push events to your server as they happen, so you do not have to poll. Register an HTTPS endpoint, verify it, and 0xinsider delivers a signed POST every time a subscribed event fires.
+Webhooks send signed POST requests to your HTTPS endpoint when a subscribed event fires. They remove the need to poll.
 
-Each delivery is signed with HMAC-SHA256. Verify the signature before you trust the body. The snippets below verify a real 0xinsider signature on the first try.
+Each delivery uses HMAC-SHA256. Verify the signature before you read the body.
 
 ## Event types
 
@@ -16,7 +16,7 @@ Each delivery is signed with HMAC-SHA256. Verify the signature before you trust 
 | `whale_trader_synced` | Reserved | Accepted on subscribe, not yet emitted. |
 | `large_positions_updated` | Reserved | Accepted on subscribe, not yet emitted. |
 
-Today, `whale_trades_inserted` is the only event delivered. You can subscribe to the reserved types now; they will begin delivering when emission ships, with no change to your verification code.
+`whale_trades_inserted` is the only event delivered now. Reserved types are accepted but do not emit events yet.
 
 A `whale_trades_inserted` delivery body:
 
@@ -29,11 +29,11 @@ A `whale_trades_inserted` delivery body:
 }
 ```
 
-The event signals that new trades landed. Fetch the detail from [`GET /api/v1/whale-trades`](/api-reference/endpoint/get-whale-trades) (newest first) when you receive it.
+The event says that new trades landed. Fetch the newest trades from [`GET /api/v1/whale-trades`](/api-reference/endpoint/get-whale-trades) after you receive it.
 
 ## Set up an endpoint
 
-### 1. Create it
+### 1. Register it
 
 ```bash
 curl -X POST \
@@ -47,9 +47,9 @@ curl -X POST \
   "https://api.0xinsider.com/api/v1/webhooks"
 ```
 
-The URL must be `https` and publicly routable. Localhost and private IP literals are rejected. You can register up to 10 endpoints.
+The URL must use `https` and be public. Localhost and private IP literals are rejected. You can register up to 10 endpoints.
 
-The create response includes two values you only see once:
+The create response includes two one-time values:
 
 ```json
 {
@@ -70,11 +70,11 @@ The create response includes two values you only see once:
 }
 ```
 
-Store the `signing_secret` now. It is shown only on create and on [rotate-secret](/api-reference/endpoint/rotate-webhook-secret), never on a later read. The webhook `id` is an integer.
+Store `signing_secret` now. It appears only on create and [rotate-secret](/api-reference/endpoint/rotate-webhook-secret). The webhook `id` is an integer.
 
 ### 2. Verify it
 
-A new endpoint starts in `pending_verification` and receives nothing until you verify it. Prove you control the secret by sending the verification token back within 24 hours:
+A new endpoint starts as `pending_verification`. Send the token within 24 hours:
 
 ```bash
 curl -X POST \
@@ -84,7 +84,7 @@ curl -X POST \
   "https://api.0xinsider.com/api/v1/webhooks/42/verify"
 ```
 
-On success the endpoint flips to `active` and deliveries begin. Verification does not send a test delivery; it activates the endpoint by matching the token from create.
+Success changes the endpoint to `active`. Verification does not send a test delivery.
 
 ## Delivery format
 
@@ -101,18 +101,18 @@ Every delivery is an HTTP POST with a JSON body and these headers:
 
 ## Verify the signature
 
-The signature is computed over the timestamp and the raw request body, joined by a literal `.`:
+The signature covers the timestamp and raw request body, joined by `.`:
 
 ```
 signature = "v1=" + hex( HMAC_SHA256( signing_secret, timestamp + "." + raw_body ) )
 ```
 
-Two rules make or break verification:
+Follow these two rules:
 
 - Use the **raw request body bytes**, exactly as received. Do not parse and re-serialize the JSON first; whitespace and key order would change and the HMAC would not match.
 - Use the `signing_secret` string as the HMAC key, the full `whsec_...` value.
 
-Reject the delivery if the signature does not match. Reject it if `x-0xinsider-timestamp` is more than 5 minutes from your clock. That is a replay guard you enforce on your side.
+Reject a bad signature. Also reject a timestamp more than 5 minutes from your clock.
 
 <CodeGroup>
 ```javascript Node (Express)
@@ -213,20 +213,20 @@ def receive():
 ```
 </CodeGroup>
 
-## Retries and idempotency
+## Retry and deduplicate
 
-Respond with any `2xx` to mark a delivery successful. Anything else, or a timeout, counts as a failure.
+Return any `2xx` to mark a delivery successful. Other responses and timeouts fail the delivery.
 
-- **Timeout**: respond within 15 seconds. ACK fast, then do slow work asynchronously.
-- **Retries**: a failed delivery is retried up to 8 attempts, roughly a minute apart. After the last attempt it is moved to a dead-letter state and not retried.
-- **Idempotency**: the same logical event always carries the same `x-0xinsider-event-id`. A retried delivery reuses its `x-0xinsider-delivery-id` and increments `x-0xinsider-delivery-attempt`. Dedupe your processing on `x-0xinsider-event-id` so a redelivery does not double-handle.
+- **Timeout**: respond within 15 seconds. Acknowledge first; process later.
+- **Retries**: failed deliveries retry up to 8 times, about one minute apart. The last failure moves to dead letter.
+- **Idempotency**: deduplicate on `x-0xinsider-event-id`. A retry keeps that event ID and increments `x-0xinsider-delivery-attempt`.
 
 ## Manage and rotate
 
-- [Update](/api-reference/endpoint/update-webhook) the URL, events, or enabled flag. Changing the URL drops the endpoint back to `pending_verification` and issues a fresh verification token.
-- [Rotate the secret](/api-reference/endpoint/rotate-webhook-secret) if it leaks. The old secret stops working the moment the call returns, so deploy the new one to your verifier first.
-- [Disable](/api-reference/endpoint/delete-webhook) to stop deliveries without losing the registration, or set `enabled: false` via update.
+- [Update](/api-reference/endpoint/update-webhook) the URL, events, or enabled flag. A URL change returns the endpoint to `pending_verification`.
+- [Rotate the secret](/api-reference/endpoint/rotate-webhook-secret) if it leaks. Deploy the new secret before the call returns.
+- [Disable](/api-reference/endpoint/delete-webhook) to stop deliveries without deleting the registration, or set `enabled: false`.
 
-## Don't have a public endpoint yet?
+## No public endpoint
 
-Poll instead. [`GET /api/v1/whale-trades`](/api-reference/endpoint/get-whale-trades) is the live feed, [`GET /api/v1/events/feed/since`](/api-reference/endpoint/get-event-replay-since) is a durable cursor-based replay of the same events, and [`GET /api/v1/stream`](/api-reference/endpoint/get-stream) is a real-time SSE stream. The [alert bot recipe](/recipes/alert-bot) shows both the webhook and the polling path.
+Use [polling](/recipes/alert-bot) instead. [`GET /api/v1/whale-trades`](/api-reference/endpoint/get-whale-trades) is the live feed, [`GET /api/v1/events/feed/since`](/api-reference/endpoint/get-event-replay-since) replays events, and [`GET /api/v1/stream`](/api-reference/endpoint/get-stream) opens an SSE stream.

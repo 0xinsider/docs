@@ -3,11 +3,19 @@ title: "Get Whale Trade"
 openapi: "GET /api/v1/whale-trades/{id}"
 ---
 
-Fetch one whale trade by ID. Use either the raw `whale_alerts.id` or the `wt_...` ID returned by whale-trade list and history responses.
+Get one whale trade by ID. Use the raw ID or the `wt_...` ID from a list or history response.
+
+## Use this endpoint when
+
+Use this endpoint when a user opens one trade from a feed, alert, or report.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/whale-trades/wt_123"
 ```
 
-The response is a single `whale_trade` envelope with the same item shape as [Get Whale Trades](/api-reference/endpoint/get-whale-trades).
+The response is one `whale_trade` envelope with the same item shape as [Get Whale Trades](/api-reference/endpoint/get-whale-trades).
+
+## Example: open an alert detail
+
+Store the `wt_...` ID from the feed. Request this endpoint when the user selects the alert.

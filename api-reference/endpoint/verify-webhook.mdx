@@ -3,7 +3,11 @@ title: "Verify Webhook"
 openapi: "POST /api/v1/webhooks/{id}/verify"
 ---
 
-Activate a webhook by returning the `verification_token` you received when you created it. A new endpoint stays in `pending_verification` and receives no deliveries until it is verified. The token expires 24 hours after create.
+Activate a webhook with its `verification_token`. A new endpoint stays in `pending_verification` until this call succeeds. The token expires 24 hours after creation.
+
+## Use this endpoint when
+
+Use this endpoint after [Create Webhook](/api-reference/endpoint/create-webhook) and before you wait for events.
 
 ```bash
 curl -X POST \
@@ -13,6 +17,10 @@ curl -X POST \
   "https://api.0xinsider.com/api/v1/webhooks/42/verify"
 ```
 
-On success the endpoint flips to `active` and deliveries begin. This call does not send a test delivery; it activates the endpoint by matching the token. The webhook `id` is the integer returned at create.
+On success, the endpoint becomes `active` and delivery starts. This call does not send a test delivery. The webhook `id` is the integer from create.
 
 For the signature scheme and copy-pasteable verification code, see the [Webhooks guide](/guides/webhooks).
+
+## Example: activate a new receiver
+
+Read the token from the create response, send it from your setup job, and then wait for a real event delivery.

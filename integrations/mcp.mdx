@@ -1,9 +1,9 @@
 ---
 title: "Local MCP Server"
-description: "Give your AI agent direct, read-only access to 0xinsider intelligence over stdio."
+description: "Connect an AI client to read-only 0xinsider tools over stdio."
 ---
 
-[`@0xinsider/mcp`](https://www.npmjs.com/package/@0xinsider/mcp) is the official local Model Context Protocol server. It exposes the same data as the REST API (trader grades, whale trades, smart-money flow, positions, insider detection) as MCP tools your agent calls directly.
+[`@0xinsider/mcp`](https://www.npmjs.com/package/@0xinsider/mcp) is the official local Model Context Protocol server. It exposes REST data as read-only MCP tools.
 
 Works with **Claude Code, Cursor, Codex, Gemini CLI**, and any stdio MCP client.
 
@@ -17,7 +17,7 @@ Works with **Claude Code, Cursor, Codex, Gemini CLI**, and any stdio MCP client.
 npx -y @0xinsider/mcp init
 ```
 
-`init` detects your installed clients and writes the right config in the right place. It asks for your API key once.
+`init` detects installed clients, writes their config, and asks for your API key once.
 
 Prefer to edit configs by hand? The per-client paths and snippets are below.
 
@@ -114,7 +114,7 @@ Prefer to edit configs by hand? The per-client paths and snippets are below.
 | `get_market_intel` | Smart-money breakdown for a single market. |
 | `get_insider_radar` | Suspicious accumulation and timing patterns. |
 
-Every tool advertises `readOnlyHint: true`. The server can't place trades or write data.
+Every tool advertises `readOnlyHint: true`. The server cannot place trades or write data.
 
 ### Resources (auto-attached context)
 
@@ -133,17 +133,17 @@ Every tool advertises `readOnlyHint: true`. The server can't place trades or wri
 | `market_report` | You want smart-money flow on a market topic. |
 | `trading_signals` | You want a scan for high-conviction signals across markets. |
 
-## Try it
+## Example prompts
 
-After install, ask your agent:
+After install, ask a task-specific question:
 
-- "Who are the top prediction-market traders right now?"
+- "Who are the top prediction-market traders currently?"
 - "What are A-grade or better whales buying in crypto markets today?"
 - "Analyze trader `0x863134d00841b2e200492805a01e1e2f5defaa53`. Is their strategy worth following?"
 - "Are there suspicious accumulation patterns on the Trump election market?"
 - "Show me the position timeline for that whale on the Ethereum market."
 
-The agent picks the right tool and calls it for you.
+The agent selects the tool and calls it.
 
 ## Environment variables
 
@@ -153,5 +153,5 @@ The agent picks the right tool and calls it for you.
 | `OXINSIDER_API_URL` | No | Override the base URL (mostly for self-hosted dev). |
 
 <Note>
-  The MCP server uses your normal API key and shares the 100 req/min rate limit with direct API calls. One key, one budget. Get yours at [0xinsider.com/developers](https://0xinsider.com/developers).
+  The MCP server uses your API key and shares the 100 req/minute limit with REST calls.
 </Note>

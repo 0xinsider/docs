@@ -3,7 +3,11 @@ title: "Create Webhook"
 openapi: "POST /api/v1/webhooks"
 ---
 
-Register an HTTPS endpoint to receive [webhook events](/guides/webhooks#event-types) as they happen. The endpoint starts in `pending_verification` and must be verified before deliveries begin.
+Register an HTTPS endpoint for [webhook events](/guides/webhooks#event-types). The endpoint starts as `pending_verification`.
+
+## Use this endpoint when
+
+Use this endpoint when a worker needs push alerts for new whale trades. Verify the endpoint before you expect deliveries.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
@@ -17,6 +21,12 @@ curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/webhooks"
 ```
 
-The response includes a one-time `signing_secret` and a `verification.token`. **Copy the secret now**. You can't retrieve it later. Use it to verify the `x-0xinsider-signature` header on every delivery; see the [Webhooks guide](/guides/webhooks). Then send the verification token to [Verify Webhook](/api-reference/endpoint/verify-webhook) to activate the endpoint. If the secret leaks, [rotate it](/api-reference/endpoint/rotate-webhook-secret).
+The response includes `signing_secret` and `verification.token` once. **Copy the secret now.** You cannot retrieve it later. Use the secret to check each `x-0xinsider-signature` header. Then call [Verify Webhook](/api-reference/endpoint/verify-webhook).
 
-Send `Idempotency-Key` when retrying after a timeout. The same key with the same body returns the original webhook; the same key with a different body returns `422`.
+See the [Webhooks guide](/guides/webhooks) for signature code.
+
+Send `Idempotency-Key` when you retry after a timeout. The same key and body return the original webhook. A different body with that key returns `422`.
+
+## Example: start a whale-trade alert
+
+Register `whale_trades_inserted`, save the secret in your server secret store, then verify the returned token.

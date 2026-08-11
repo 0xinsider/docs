@@ -1,7 +1,7 @@
 ---
 title: "API Reference"
 sidebarTitle: "Overview"
-description: "What every 0xinsider endpoint shares: base URL, auth, envelope, IDs, rate limits, and trust metadata."
+description: "Shared API rules for URLs, auth, responses, IDs, limits, and trust metadata."
 ---
 
 ## Base URL
@@ -18,11 +18,11 @@ Every endpoint except `/health` needs a Bearer token:
 Authorization: Bearer oxi_sk_live_...
 ```
 
-Generate yours at [0xinsider.com/developers](https://0xinsider.com/developers). Full details in [Authentication](/authentication).
+Create a key at [0xinsider.com/developers](https://0xinsider.com/developers). See [Authentication](/authentication).
 
 ## Response envelope
 
-Single-resource endpoints return:
+Single-resource endpoints return one object:
 
 ```json
 {
@@ -32,7 +32,7 @@ Single-resource endpoints return:
 }
 ```
 
-List endpoints add pagination fields:
+List endpoints add cursor fields:
 
 ```json
 {
@@ -52,11 +52,11 @@ List endpoints add pagination fields:
 | `meta.cached` | `true` when the response came from cache. |
 | `has_more` / `next_cursor` | Present on list responses. See [Pagination](/concepts/pagination). |
 
-Errors share the same envelope, with `"object": "error"`. See [Errors](/errors).
+Errors use the same envelope with `"object": "error"`. See [Errors](/errors).
 
 ## Prefixed IDs
 
-Every ID is prefixed with its type, so it's self-describing in logs and chat transcripts.
+IDs carry a type prefix. Keep the prefix in logs and agent context.
 
 | Entity | Prefix | Example |
 |---|---|---|
@@ -66,11 +66,11 @@ Every ID is prefixed with its type, so it's self-describing in logs and chat tra
 | Radar flag | `rf_` | `rf_67890` |
 | Request | `req_` | `req_550e8400` |
 
-Trader path endpoints accept raw addresses and valid `trd_...` wallet IDs. Market path endpoints such as `/market/{condition_id}/intel` and `/market/{condition_id}/snapshot` accept either raw provider-backed condition IDs or the `mkt_...` IDs emitted by V1 responses. Single-record whale trade and radar endpoints accept raw integer IDs or their `wt_...` / `rf_...` forms.
+Trader paths accept raw addresses and `trd_...` IDs. Market paths such as `/market/{condition_id}/intel` and `/market/{condition_id}/snapshot` accept raw condition IDs and `mkt_...` IDs. Single whale-trade and radar paths accept raw integer IDs and `wt_...` or `rf_...` IDs.
 
 ## Rate limits
 
-100 requests per minute per user, sliding window. Batch endpoints have an additional 100-item-unit-per-minute budget. `GET /api/v1/usage` does not spend primary quota, but it has its own 100 reads/minute guard.
+The limit is 100 requests per minute per user in a sliding window. Batch endpoints add a 100-item-unit budget. `GET /api/v1/usage` has its own 100 reads/minute guard.
 
 | Header | Meaning |
 |---|---|
@@ -83,17 +83,16 @@ Trader path endpoints accept raw addresses and valid `trd_...` wallet IDs. Marke
 | `X-Batch-RateLimit-Reset` | Unix timestamp when the batch window resets. |
 | `Retry-After` | Seconds to wait. Only on `429`. |
 
-See [Rate Limits](/rate-limits) for backoff patterns.
+See [Rate Limits](/rate-limits) for retry code.
 
 ## Browser CORS
 
-Public REST `/api/v1/*` endpoints, excluding remote MCP (`/api/v1/mcp`), are
-callable from third-party browser origins with `Authorization: Bearer ...`. Do
-not send cookies or `credentials: "include"` on public API calls.
+Public REST `/api/v1/*` endpoints, except remote MCP (`/api/v1/mcp`), accept
+requests from third-party browser origins with `Authorization: Bearer ...`.
+Do not send cookies or `credentials: "include"`.
 
-Remote MCP at `/api/v1/mcp` is also non-credentialed, but still validates
-`Origin` against the 0xinsider/localhost allowlist per the MCP Streamable HTTP
-DNS-rebinding guidance.
+Remote MCP at `/api/v1/mcp` is also non-credentialed. It validates `Origin`
+against the 0xinsider/localhost allowlist.
 
 Allowed public request headers:
 
@@ -122,7 +121,7 @@ endpoints remain restricted to configured 0xinsider origins.
 
 ## Trust metadata
 
-Newer builder endpoints attach metadata to provider-owned values. Those endpoints are snapshots, history ranges, batch reads, and reports. The metadata lets you tell provider-backed, cached, partial, stale, and unavailable data apart.
+Builder endpoints attach metadata to provider-owned values. Use it to separate provider-backed, cached, partial, stale, and unavailable data.
 
 Per value, four dimensions:
 
@@ -131,6 +130,6 @@ Per value, four dimensions:
 - `reconciliation`: whether it was cross-checked against the source of truth (`provider_backed`, `db_mirror`, `computed`, `partial`, `not_applicable`, `unavailable`).
 - `completeness`: whether it reflects the full picture (`complete`, `partial`, `not_computed`, `not_applicable`, `unavailable`).
 
-See [Trust metadata](/concepts/trust-metadata) for what each value means and how to request field-level trust with `expand=trust`.
+See [Trust metadata](/concepts/trust-metadata) for the values and `expand=trust`.
 
-Rule of thumb: **don't flatten unavailable values into `0`, `[]`, or `{}`.** Read the metadata. Surface "unavailable" to your consumer instead of inventing a zero. Provider data that quietly becomes `0` causes silent bugs downstream.
+Do not convert unavailable values to `0`, `[]`, or `{}`. Read the metadata and pass `unavailable` to your consumer.

@@ -1,9 +1,9 @@
 ---
 title: "Pagination"
-description: "Cursor-based pagination, with a full loop in JS and Python."
+description: "Page through list endpoints with cursors in JavaScript or Python."
 ---
 
-Every list endpoint uses **cursor pagination**. No `offset`, no `page` number. Cursors stay stable as long as the sort order holds, so they beat offsets on live data.
+Every list endpoint uses a cursor. There is no `offset` or page number.
 
 ## The shape
 
@@ -19,14 +19,14 @@ A list response looks like this:
 }
 ```
 
-To get the next page, pass `next_cursor` back as the `cursor` query param:
+Pass `next_cursor` back as the `cursor` query parameter:
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/leaderboard?limit=20&cursor=95.85_0x885..."
 ```
 
-Repeat until `has_more` is `false`.
+Stop when `has_more` is `false`.
 
 ## Parameters
 
@@ -35,9 +35,9 @@ Repeat until `has_more` is `false`.
 | `limit` | integer | `20` | `100` |
 | `cursor` | string | — | — |
 
-## Full loop, end to end
+## Example: read every page
 
-This pulls every page of the leaderboard.
+This loop reads every leaderboard page.
 
 <CodeGroup>
 ```javascript JavaScript
@@ -90,9 +90,9 @@ print(f"Fetched {len(leaders)} traders")
 ```
 </CodeGroup>
 
-## Cursors are opaque
+## Treat cursors as opaque
 
-Don't parse, construct, or store cursors long-term. Always use the `next_cursor` from the response you just got.
+Do not parse or construct cursors. Use the latest `next_cursor`.
 
 Different endpoints encode cursors differently:
 
@@ -100,11 +100,11 @@ Different endpoints encode cursors differently:
 - **Whale trades**: `{timestamp}_{id}` (ISO 8601)
 - **Insider radar**: `{score}_{id}`
 
-You don't need to know this. Just pass the string back.
+Pass the string back without changing it.
 
-## Gotchas
+## Common mistakes
 
-- **Don't mix cursors across filters.** A cursor from `?category=crypto` won't work on `?category=politics`. Restart pagination when filters change.
-- **Don't mix cursors across endpoints.** A leaderboard cursor won't work on whale trades.
-- **`400 Invalid cursor format`** means the cursor came from a different filter set, a different endpoint, or got mangled. Drop it and start over.
-- **Stale cursors expire.** Pause for hours and the underlying sort can shift. Expect to restart.
+- **Filters changed.** Restart when any filter changes.
+- **Endpoint changed.** A leaderboard cursor cannot page whale trades.
+- **`400 Invalid cursor format`.** Drop the cursor and start again.
+- **Cursor is old.** Restart after a long pause or a sort change.
