@@ -8,7 +8,7 @@ Open the server-to-client stream for [Remote MCP](/api-reference/endpoint/remote
 
 ## Use this endpoint when
 
-Use this endpoint after you start a Remote MCP session and need streamed tool responses.
+Use this endpoint after you start a Remote MCP session and need a server-to-client stream.
 
 ```bash
 curl -N \
@@ -17,8 +17,8 @@ curl -N \
   https://api.0xinsider.com/api/v1/mcp
 ```
 
-Keep the connection open for streamed tool responses and progress events.
+Keep the connection open for server-to-client notifications. The current GET stream sends only a keep-alive. Send `tools/call` to the POST endpoint to receive a tool response.
 
-## Example: receive a tool response
+## Example: keep a session stream open
 
-Send the session ID from the initialize response. Read the stream until the tool call completes.
+Send the session ID from the initialize response. Do not wait for tool results on this GET stream. Use [Remote MCP](/api-reference/endpoint/remote-mcp) for POST requests and tool results.

@@ -26,7 +26,7 @@ curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
 
 Only HOT and WARM tier traders are tracked. Other traders return `404`. The body matches [Get Position Timeline](/api-reference/endpoint/get-position-timeline) for the same pair.
 
-The response uses cursor pagination. Send `If-None-Match` for `304 Not Modified` when the timeline is unchanged.
+The response uses cursor pagination. When `has_more` is `true`, pass `next_cursor` as `cursor` on the next request. Send `If-None-Match` for `304 Not Modified` when the timeline is unchanged.
 
 ## Example: inspect a trader entry
 
