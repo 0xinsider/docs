@@ -7,11 +7,11 @@ Replay feed events after the last event that your worker processed.
 
 ## Use this endpoint when
 
-Use this endpoint after a worker restart or stream disconnect. Omit `cursor` on the first request.
+Use this endpoint after a worker restart or stream disconnect. Load the saved cursor and pass it on the first recovery request. Omit `cursor` only for initial bootstrap.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/events/feed/since?limit=100"
+  "https://api.0xinsider.com/api/v1/events/feed/since?cursor=$REPLAY_CURSOR&limit=100"
 ```
 
 Save `next_cursor` after each page. Pass it as `cursor` on the next request. Process events idempotently. Use [Webhooks](/api-reference/endpoint/list-webhooks) for push delivery.
