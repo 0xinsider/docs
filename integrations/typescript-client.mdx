@@ -71,7 +71,7 @@ if (!isApiNotModifiedResponse(first) && first.meta?.etag) {
 
 The `304` envelope has `object: "not_modified"`, `data: null`, and response-header metadata.
 
-## Handling errors
+## Handle errors
 
 The client throws typed exceptions. Match on `error.code`:
 

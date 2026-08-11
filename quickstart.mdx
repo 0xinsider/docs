@@ -34,18 +34,33 @@ Keys start with `oxi_sk_live_` and contain 64 hex characters after the prefix.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  https://api.0xinsider.com/api/v1/health
+  https://api.0xinsider.com/api/v1/usage
 ```
 
 ```json
 {
-  "object": "health",
-  "data": { "status": "ok", "db": true, "cache": true },
-  "meta": { "request_id": "req_abc123", "cached": false }
+  "object": "usage",
+  "data": {
+    "rate_limit": {
+      "used": 7,
+      "limit": 100,
+      "remaining": 93,
+      "reset_at": 1710772860,
+      "window_seconds": 60
+    },
+    "daily_usage": {
+      "used": 42,
+      "limit": null,
+      "remaining": null,
+      "reset_at": 1710806400,
+      "window_seconds": 86400
+    }
+  },
+  "meta": { "request_id": "req_example", "cached": false, "cost": 1 }
 }
 ```
 
-`status: "ok"` confirms the key and API path work.
+The `200` response confirms that the key works. This route does not spend primary quota.
 
 <Tip>
   Browser apps can call public REST endpoints under

@@ -9,7 +9,7 @@ Get one trader profile with grade, realized P&L, win rate, strategy, category st
 
 Use this endpoint after the leaderboard or whale-trade feed gives you a wallet, username, or trader ID.
 
-The path accepts a raw wallet address or known username. Add repeated `expand` values for heavier fields.
+The path accepts a raw wallet address, known username, or `trd_`-prefixed trader ID. Add repeated `expand` values for heavier fields.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \

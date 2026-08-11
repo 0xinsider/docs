@@ -5,7 +5,7 @@ description: "Check the source, age, reconciliation, and completeness of API val
 
 Trust metadata tells you where a value came from, how fresh it is, whether it matches provider data, and whether it is complete.
 
-Use it before an automated action. `fresh` and `provider_backed` is stronger evidence than `stale` and `db_mirror`.
+Use it before an automated action. A `fresh`, `provider_backed` value is stronger evidence than a `stale`, `db_mirror` value.
 
 ## How to get it
 
@@ -101,7 +101,7 @@ Whether the value covers the full picture.
 
 `detail` carries a short human-readable note when the status needs one (for example, why a value is `partial`).
 
-## Using it in practice
+## Use it in practice
 
 For automated actions, prefer `fresh`, `complete`, and `provider_backed` or `db_mirror`. Treat `stale`, `partial`, and `unavailable` as weaker data.
 

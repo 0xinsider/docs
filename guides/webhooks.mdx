@@ -223,7 +223,7 @@ Return any `2xx` to mark a delivery successful. Other responses and timeouts fai
 
 ## Manage and rotate
 
-- [Update](/api-reference/endpoint/update-webhook) the URL, events, or enabled flag. A URL change returns the endpoint to `pending_verification`.
+- [Update](/api-reference/endpoint/update-webhook) the URL, events, or enabled flag. A URL change returns a new one-time verification token and sets the endpoint to `pending_verification`. Capture that token from the response, then call [Verify Webhook](/api-reference/endpoint/verify-webhook). If a delivery is active, retry the URL change after it completes.
 - [Rotate the secret](/api-reference/endpoint/rotate-webhook-secret) if it leaks. Deploy the new secret before the call returns.
 - [Disable](/api-reference/endpoint/delete-webhook) to stop deliveries without deleting the registration, or set `enabled: false`.
 
