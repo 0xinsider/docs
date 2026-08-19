@@ -7,6 +7,16 @@ rss: true
 
 This changelog tracks externally visible REST API changes only. Documentation-only edits are intentionally excluded.
 
+<Update label="August 19, 2026" description="Pick of the Day announces same-day picks that have not dropped yet">
+  [`GET /api/v1/pick-of-the-day`](/api-reference/endpoint/get-pick-of-the-day) adds `scheduled_picks`: the day's selected picks that have not released yet, in `pick_rank` order.
+
+  Each slot carries exactly three fields - `pick_rank`, `release_at`, and `kickoff`. No matchup, category, side, price, or holder data exists on the shape before release, so the schedule can be shown without revealing a pick early.
+
+  Use it to plan your next read: request once at the earliest `release_at` instead of re-polling. The field is present only while at least one unreleased slot remains, so its absence means the day is fully released.
+
+  Additive and optional: existing clients are unaffected.
+</Update>
+
 <Update label="August 3, 2026" description="Large-trade API responses now include the score captured with each new trade">
   [`GET /api/v1/whale-trades`](/api-reference/endpoint/get-whale-trades), [`GET /api/v1/whale-trades/history`](/api-reference/endpoint/get-whale-trades-history), and [`GET /api/v1/whale-trades/{id}`](/api-reference/endpoint/get-whale-trade) now return optional `recorded_signal_score` alongside `signal_score`.
 
