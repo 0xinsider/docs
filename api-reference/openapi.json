@@ -11,6 +11,10 @@
       "url": "https://0xinsider.com"
     }
   },
+  "externalDocs": {
+    "description": "0xinsider API docs",
+    "url": "https://docs.0xinsider.com"
+  },
   "servers": [
     {
       "url": "https://api.0xinsider.com",
@@ -17332,7 +17336,7 @@
           "pick_rank": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 5,
+            "maximum": 6,
             "description": "Stable 1-based slot within the product day's ranked picks. The slot keeps this rank when it releases."
           },
           "release_at": {
@@ -17382,7 +17386,7 @@
           "pick_rank": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 5,
+            "maximum": 6,
             "description": "Stable 1-based slot within the product day's ranked picks."
           },
           "picks": {
@@ -17395,8 +17399,8 @@
           "pick_count": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 5,
-            "description": "Number of ranked picks."
+            "maximum": 6,
+            "description": "Number of items in `picks`: the proof-readable picks. Picks held in `proof_pending_picks` are not counted."
           },
           "scheduled_picks": {
             "type": "array",
@@ -17463,11 +17467,11 @@
           },
           "side_summary": {
             "type": "string",
-            "description": "One-line summary of which side sharp money is backing. Any current-day published pick whose required holder proof is not safely readable returns 503 read_model_warming instead of a partial success shape."
+            "description": "One-line summary of which side sharp money is backing. Required on every item in `picks`: a current-day published pick whose required holder proof is not safely readable is listed in `proof_pending_picks` instead of being served with a partial success shape or a synthetic zero, and the route returns 503 read_model_warming only when no published pick has readable proof."
           },
           "smart_wallet_count": {
             "type": "integer",
-            "description": "Public V1 compatibility count of S/A smart-money wallets on the backed side. The first-party/internal current policy counts S/A/B; historical rows retain their frozen policy's count. Any current-day published pick whose required holder proof is not safely readable returns 503 read_model_warming instead of fabricating zero or omitting this required field."
+            "description": "Public V1 compatibility count of S/A smart-money wallets on the backed side. The first-party/internal current policy counts S/A/B; historical rows retain their frozen policy's count. Required on every item in `picks`: a current-day published pick whose required holder proof is not safely readable is listed in `proof_pending_picks` instead of being served with a partial success shape or a synthetic zero, and the route returns 503 read_model_warming only when no published pick has readable proof."
           },
           "top_grade": {
             "type": "string",
@@ -17702,6 +17706,13 @@
           "disclaimer": {
             "type": "string",
             "description": "Risk disclaimer shown with every pick."
+          },
+          "proof_pending_picks": {
+            "type": "array",
+            "description": "Published same-day picks whose holder proof is not readable yet, ordered by pick_rank. Additive and optional: present only while at least one such pick exists. While present, `picks` carries only the proof-readable picks and `pick_count` counts them. Schedule the next read from the earliest retry_at instead of polling. The route returns 503 read_model_warming only when no published pick has readable proof.",
+            "items": {
+              "$ref": "#/components/schemas/ProofPendingPickSlot"
+            }
           }
         }
       },
@@ -17939,7 +17950,7 @@
           "pick_rank": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 5,
+            "maximum": 6,
             "description": "Stable 1-based slot within the product day's ranked picks."
           },
           "matchup": {
@@ -20224,11 +20235,12 @@
               "pick_not_released",
               "trader_not_tracked",
               "read_model_warming",
+              "database_unavailable",
               "idempotency_in_progress",
               "webhook_delivery_in_progress"
             ],
             "nullable": true,
-            "description": "ADDITIVE (#7209). The specific, actionable cause behind `code`, when there is one more specific than the code itself. `code` keeps its published values, so existing clients are unaffected; new clients branch on `reason`. Omitted when the code already says everything we know. pick_not_released: no Pick of the Day is published for the current product day; schedule one request against retry_at instead of polling. unknown_endpoint: the PATH is not a route on this API -- read GET /api/v1, do not retry. trader_not_tracked: the wallet is real and the URL is right, but the trader is outside the HOT/WARM sync tiers -- stop asking for this wallet. cursor_expired: pagination went stale mid-walk -- re-request the first page and continue. read_model_warming: the requested endpoint cannot serve its read model yet; exact causes are endpoint-specific and can include a cold or contended refresh or a dependency that prevented refresh. idempotency_in_progress: retain the exact Idempotency-Key and request body, then retry shortly. webhook_delivery_in_progress: retry the URL or signing-secret configuration change after the destination's active request completes."
+            "description": "ADDITIVE (#7209). The specific, actionable cause behind `code`, when there is one more specific than the code itself. `code` keeps its published values, so existing clients are unaffected; new clients branch on `reason`. Omitted when the code already says everything we know. pick_not_released: no Pick of the Day is published for the current product day; schedule one request against retry_at instead of polling. unknown_endpoint: the PATH is not a route on this API -- read GET /api/v1, do not retry. trader_not_tracked: the wallet is real and the URL is right, but the trader is outside the HOT/WARM sync tiers -- stop asking for this wallet. cursor_expired: pagination went stale mid-walk -- re-request the first page and continue. read_model_warming: the requested endpoint cannot serve its read model yet; exact causes are endpoint-specific and can include a cold or contended refresh or a dependency that prevented refresh. database_unavailable: the API's database or its connection pool is temporarily unreachable (a connection-class failure, not a query fault); code stays rate_limit_unavailable, nothing is rate-limited, retry after Retry-After / retry_at. idempotency_in_progress: retain the exact Idempotency-Key and request body, then retry shortly. webhook_delivery_in_progress: retry the URL or signing-secret configuration change after the destination's active request completes."
           }
         }
       },
@@ -20411,11 +20423,12 @@
                   "pick_not_released",
                   "trader_not_tracked",
                   "read_model_warming",
+                  "database_unavailable",
                   "idempotency_in_progress",
                   "webhook_delivery_in_progress"
                 ],
                 "nullable": true,
-                "description": "ADDITIVE (#7209). The specific, actionable cause behind `code`, when there is one more specific than the code itself. `code` keeps its published values, so existing clients are unaffected; new clients branch on `reason`. Omitted when the code already says everything we know. pick_not_released: no Pick of the Day is published for the current product day; schedule one request against retry_at instead of polling. unknown_endpoint: the PATH is not a route on this API -- read GET /api/v1, do not retry. trader_not_tracked: the wallet is real and the URL is right, but the trader is outside the HOT/WARM sync tiers -- stop asking for this wallet. cursor_expired: pagination went stale mid-walk -- re-request the first page and continue. read_model_warming: the requested endpoint cannot serve its read model yet; exact causes are endpoint-specific and can include a cold or contended refresh or a dependency that prevented refresh. idempotency_in_progress: retain the exact Idempotency-Key and request body, then retry shortly. webhook_delivery_in_progress: retry the URL or signing-secret configuration change after the destination's active request completes."
+                "description": "ADDITIVE (#7209). The specific, actionable cause behind `code`, when there is one more specific than the code itself. `code` keeps its published values, so existing clients are unaffected; new clients branch on `reason`. Omitted when the code already says everything we know. pick_not_released: no Pick of the Day is published for the current product day; schedule one request against retry_at instead of polling. unknown_endpoint: the PATH is not a route on this API -- read GET /api/v1, do not retry. trader_not_tracked: the wallet is real and the URL is right, but the trader is outside the HOT/WARM sync tiers -- stop asking for this wallet. cursor_expired: pagination went stale mid-walk -- re-request the first page and continue. read_model_warming: the requested endpoint cannot serve its read model yet; exact causes are endpoint-specific and can include a cold or contended refresh or a dependency that prevented refresh. database_unavailable: the API's database or its connection pool is temporarily unreachable (a connection-class failure, not a query fault); code stays rate_limit_unavailable, nothing is rate-limited, retry after Retry-After / retry_at. idempotency_in_progress: retain the exact Idempotency-Key and request body, then retry shortly. webhook_delivery_in_progress: retry the URL or signing-secret configuration change after the destination's active request completes."
               }
             }
           },
@@ -21739,6 +21752,38 @@
             }
           }
         }
+      },
+      "ProofPendingPickSlot": {
+        "type": "object",
+        "description": "One PUBLISHED same-day pick whose holder proof is not readable yet: its stable slot rank, the release and kickoff instants, and the instant before which a retry cannot succeed. Every item in `picks` carries its full required shape, so a pick that cannot meet it is listed here instead of being served with missing fields or a synthetic zero.",
+        "required": [
+          "pick_rank",
+          "release_at",
+          "retry_at"
+        ],
+        "properties": {
+          "pick_rank": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6,
+            "description": "Stable 1-based slot within the product day's ranked picks. The pick keeps this rank once its proof is readable and it moves into `picks`."
+          },
+          "release_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The pick's stored release instant."
+          },
+          "kickoff": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The backed game's frozen kickoff instant; absent for a legacy row without one."
+          },
+          "retry_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Recommended next read: 30 seconds ahead while pre-game proof is warming, one hour ahead for a post-kickoff pending legacy row that only settlement can make readable. Schedule against it instead of polling."
+          }
+        }
       }
     },
     "responses": {
@@ -22161,6 +22206,10 @@
     {
       "name": "Markets",
       "description": "Market search, discovery, snapshots, and smart-score flow."
+    },
+    {
+      "name": "Content",
+      "description": "Search across 0xinsider editorial content."
     },
     {
       "name": "Insider Radar",
