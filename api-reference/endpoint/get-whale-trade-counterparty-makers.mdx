@@ -1,0 +1,17 @@
+---
+title: "Page maker counterparties"
+openapi: "GET /api/v1/whale-trades/{id}/counterparties/executions/{execution_id}/makers"
+---
+
+Page the maker wallets on one exact execution of a whale trade.
+
+## Use this endpoint when
+
+Use this endpoint when an execution from [Page counterparty executions](/api-reference/endpoint/get-whale-trade-counterparty-executions) carries a `makers_next_cursor`.
+
+```bash
+curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
+  "https://api.0xinsider.com/api/v1/whale-trades/wt_123/counterparties/executions/$EXECUTION_ID/makers?snapshot_id=$SNAPSHOT_ID&limit=50"
+```
+
+Each maker's percentage keeps the complete execution as its denominator across pages. A changed snapshot returns `400` with `error.reason="cursor_expired"`. Restart from the whale-trade detail.

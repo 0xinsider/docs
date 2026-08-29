@@ -1,0 +1,17 @@
+---
+title: "Search editorial content"
+openapi: "GET /api/v1/content/search"
+---
+
+Search 0xinsider learn, glossary, comparison, research, and strategy content by keyword. Each item carries its canonical URL.
+
+## Use this endpoint when
+
+Use this endpoint to link a term or a topic from your own product to the matching 0xinsider article.
+
+```bash
+curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
+  "https://api.0xinsider.com/api/v1/content/search?q=closing%20line%20value&limit=5"
+```
+
+Ranking scores are not exposed. Show the items in the returned order.

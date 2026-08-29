@@ -111,6 +111,12 @@
             ]
           },
           {
+            "group": "Content",
+            "pages": [
+              "api-reference/endpoint/search-content"
+            ]
+          },
+          {
             "group": "Pick of the Day",
             "pages": [
               "api-reference/endpoint/get-pick-of-the-day",
@@ -122,7 +128,9 @@
             "pages": [
               "api-reference/endpoint/get-whale-trades",
               "api-reference/endpoint/get-whale-trade",
-              "api-reference/endpoint/get-whale-trades-history"
+              "api-reference/endpoint/get-whale-trades-history",
+              "api-reference/endpoint/get-whale-trade-counterparty-executions",
+              "api-reference/endpoint/get-whale-trade-counterparty-makers"
             ]
           },
           {

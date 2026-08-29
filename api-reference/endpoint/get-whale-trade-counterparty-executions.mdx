@@ -1,0 +1,20 @@
+---
+title: "Page counterparty executions"
+openapi: "GET /api/v1/whale-trades/{id}/counterparties/executions"
+---
+
+Page the executions behind one whale trade's counterparty snapshot.
+
+## Use this endpoint when
+
+Use this endpoint after [Get Whale Trade](/api-reference/endpoint/get-whale-trade) returns a counterparty analysis with an `executions_next_cursor`.
+
+1. Read `counterparties.snapshot_id` and `counterparties.executions_next_cursor` from the whale-trade detail.
+2. Request this endpoint with that `snapshot_id` and the cursor. Later pages use `next_cursor` from the previous page.
+
+```bash
+curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
+  "https://api.0xinsider.com/api/v1/whale-trades/wt_123/counterparties/executions?snapshot_id=$SNAPSHOT_ID&limit=50"
+```
+
+A changed snapshot returns `400` with `error.reason="cursor_expired"`. Request the whale-trade detail again and restart from its new snapshot.

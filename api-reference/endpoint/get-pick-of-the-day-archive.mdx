@@ -3,28 +3,29 @@ title: "Get Pick of the Day track record"
 openapi: "GET /api/v1/pick-of-the-day/archive"
 ---
 
-Get the full Pick of the Day record and its rolling hit rate.
+Get every published pick with its outcome, plus the rolling hit rate. Use this endpoint for a results page or a chart.
 
-## Use this endpoint when
+## Read the record
 
-Use this endpoint to build a results page or chart the record over time.
-
-- `picks` contains published picks and their outcomes.
-- `hit_rate` contains wins, losses, decided picks, and `pct`. `void` and `pending` picks do not count.
-- `hit_rate.net_profit_usd`, `staked_usd`, and `roi_pct` model a flat $100 stake.
-- `hit_rate.series` contains one point per decided pick in date order.
-
-Resolved picks form the record. A pending pick can still include `pick_outcome_label`.
+- `picks` holds every published pick, newest first. Resolved picks are public. A pending pick's backed side needs a Pro key.
+- `days` holds one entry per product day with its net units, in the same order as `picks`.
+- `hit_rate` holds `wins`, `losses`, `decided`, and `pct`. `void` and `pending` picks do not count.
+- `hit_rate.net_profit_usd`, `staked_usd`, and `roi_pct` model a flat $100 stake per pick.
+- `hit_rate.clv_*` fields report closing-line value coverage. Only picks published before kickoff enter the coverage denominator.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/pick-of-the-day/archive"
 ```
 
-The response is side-effect-free and ETag-cacheable. Send `If-None-Match` for `304 Not Modified` when the archive is unchanged.
+## Chart the record
 
-For the current single pick, see [Get Pick of the Day](/api-reference/endpoint/get-pick-of-the-day).
+Plot `hit_rate.series`. It has one point per decided pick, in date order. The last point equals `hit_rate.net_profit_usd` and `hit_rate.pct`, so the chart ends on the headline numbers.
 
-## Example: chart the record
+## Cache the record
 
-Plot `hit_rate.series`. Use `hit_rate` for the headline value and do not count `pending` or `void` picks.
+The response is ETag-cacheable. Send `If-None-Match` to get `304 Not Modified` when the record is unchanged.
+
+## Related
+
+[Get Pick of the Day](/api-reference/endpoint/get-pick-of-the-day) returns today's picks.
