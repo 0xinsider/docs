@@ -1,117 +1,114 @@
 ---
 title: "Trust Metadata"
-description: "Check the source, age, reconciliation, and completeness of API values."
+description: "Read the source, freshness, reconciliation, and completeness of each API value."
 ---
 
-Trust metadata tells you where a value came from, how fresh it is, whether it matches provider data, and whether it is complete.
+Trust metadata is a per-field object with four facts: the source of a value, its age, its match with provider data, and its completeness. Request it before an automated action depends on one number.
 
-Use it before an automated action. A `fresh`, `provider_backed` value is stronger evidence than a `stale`, `db_mirror` value.
+## Request it
 
-## How to get it
-
-Trust metadata is optional. Pass `expand=trust`:
+Pass `expand=trust`. Without it, the `trust` block is absent.
 
 ```bash
-# Field-level trust on a trader profile
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/trader/0x204f72f35326db932158cba6adff0b9a1da95e14?expand=trust"
+  "https://api.0xinsider.com/api/v1/trader/swisstony?expand=trust"
+```
 
-# Trust on a market snapshot (price and spread)
+```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/market/0x123.../snapshot?expand=trust"
 ```
 
-Without `expand=trust`, the `trust` block is omitted.
+- [`GET /api/v1/trader/{address}`](/api-reference/endpoint/get-trader) and [`POST /api/v1/traders/batch`](/api-reference/endpoint/batch-get-traders) return `trust` with 17 keys: `total_pnl`, `realized_pnl`, `unrealized_pnl`, `markets_traded`, `win_rate`, `daily_win_rate`, `total_volume`, `grade`, `score`, `rank`, `streak_tier`, `strategy`, `category_strengths`, `quant_metrics`, `last_active`, `synced_at`, `sync_status`.
+- [`GET /api/v1/market/{condition_id}/snapshot`](/api-reference/endpoint/get-market-snapshot) returns `trust` with two keys: `current_price` and `spread_bps`.
 
-## The shape
-
-Each covered field has a `TrustMetadata` object with four dimensions:
+## Read the shape
 
 ```json
 {
   "trust": {
-    "pnl": {
-      "source": { "kind": "provider", "owner": "polymarket", "field": "cashPnl" },
-      "freshness": { "status": "fresh", "as_of": "2026-06-17T14:28:20Z", "max_age_s": 300 },
-      "reconciliation": { "status": "provider_backed", "detail": "from /positions" },
+    "total_pnl": {
+      "source": { "kind": "provider", "owner": "traders", "field": "total_pnl" },
+      "freshness": { "status": "fresh", "as_of": "2026-08-28T14:28:20Z", "max_age_s": null },
+      "reconciliation": { "status": "provider_backed", "detail": null },
       "completeness": { "status": "complete", "detail": null }
+    },
+    "grade": {
+      "source": { "kind": "computed", "owner": "0xinsider_trader_read_model", "field": "grade" },
+      "freshness": { "status": "unknown", "as_of": null, "max_age_s": null },
+      "reconciliation": { "status": "computed", "detail": "derived from stored provider-backed trader, position, and market facts" },
+      "completeness": { "status": "complete", "detail": null }
+    },
+    "strategy": {
+      "source": { "kind": "computed", "owner": "0xinsider_trader_read_model", "field": "strategy" },
+      "freshness": { "status": "unknown", "as_of": null, "max_age_s": null },
+      "reconciliation": { "status": "not_applicable", "detail": "request did not expand this derived profile field" },
+      "completeness": { "status": "not_computed", "detail": "request did not expand this derived profile field" }
     }
   }
 }
 ```
 
-On trader profiles, `trust` covers derived fields such as P&L, strategy, categories, and quant metrics. On market snapshots, it covers `current_price` and `spread_bps`.
+`owner` names the provider, table, read model, or service that owns the value. `field` names the provider field or column.
 
-## The four dimensions
-
-### source
-
-The value's origin.
+## Read `source.kind`
 
 | Value | Meaning |
 |---|---|
-| `provider` | Read directly from Polymarket or Kalshi. |
-| `database` | Stored in our database, mirrored from a provider read. |
+| `provider` | Copied from a Polymarket or Kalshi value. |
+| `database` | Mirrored from a stored row. |
 | `cache` | Served from a short-lived cache. |
-| `computed` | Derived by 0xinsider from underlying rows. |
-| `client_input` | Echoed back from your request. |
-| `unavailable` | No source could supply this field. |
+| `computed` | Derived by 0xinsider from stored facts. |
+| `client_input` | Echoed from your request. |
+| `unavailable` | No source could supply the field. |
 
-The `owner` and `field` tell you the upstream provider and the exact provider field name when `kind` is `provider`.
-
-### freshness
-
-The value's age.
+## Read `freshness.status`
 
 | Value | Meaning |
 |---|---|
-| `fresh` | Within its expected age window. |
-| `refreshing` | A newer value is being fetched right now. |
-| `stale` | Past its freshness window. Treat as a hint. |
-| `not_live` | Point-in-time value that is not meant to update (a resolved market). |
-| `unknown` | Freshness could not be determined. |
-| `unavailable` | No freshness signal exists. |
+| `fresh` | Inside its age window. |
+| `refreshing` | A newer value is on its way. |
+| `stale` | Past its age window. |
+| `not_live` | A point-in-time value that does not update. |
+| `unknown` | No freshness clock exists for the value. |
+| `unavailable` | The value itself is unavailable. |
 
-`as_of` is the timestamp the value was last known good. `max_age_s` is the window after which `fresh` becomes `stale`.
+- `as_of` is the instant the value was last known good.
+- `max_age_s` is the window after which `fresh` becomes `stale`.
+- Computed fields such as `grade`, `score`, and `quant_metrics` report `unknown`. Do not require `fresh` on them.
 
-### reconciliation
-
-Whether the value was checked against provider data.
-
-| Value | Meaning |
-|---|---|
-| `provider_backed` | Matches a direct provider read. |
-| `db_mirror` | Mirrored from an earlier provider read, not re-checked this request. |
-| `computed` | Derived locally, no single provider field to reconcile against. |
-| `partial` | Reconciled against some but not all underlying sources. |
-| `not_applicable` | Reconciliation does not apply to this field. |
-| `unavailable` | Could not reconcile. |
-
-### completeness
-
-Whether the value covers the full picture.
+## Read `reconciliation.status`
 
 | Value | Meaning |
 |---|---|
-| `complete` | Computed over the full available history. |
-| `partial` | Computed over a subset (an in-progress sync, a bounded window). |
-| `not_computed` | The field was not computed for this response. |
+| `provider_backed` | Matches a provider value. |
+| `db_mirror` | Mirrored from an earlier provider read, not re-read on this request. |
+| `computed` | Derived locally, with no single provider field to compare. |
+| `partial` | Compared against some sources, not all. |
+| `not_applicable` | Reconciliation does not apply to the field. |
+| `unavailable` | No comparison was possible. |
+
+## Read `completeness.status`
+
+| Value | Meaning |
+|---|---|
+| `complete` | Covers the full contract of the field. |
+| `partial` | Covers a subset, such as a fallback value or an in-progress sync. |
+| `not_computed` | Not computed on this request, for example a field you did not expand. |
 | `not_applicable` | Completeness does not apply. |
-| `unavailable` | Could not determine completeness. |
+| `unavailable` | Could not be determined. |
 
-`detail` carries a short human-readable note when the status needs one (for example, why a value is `partial`).
+`detail` carries a short note when a status needs one, for example why a value is `partial`.
 
-## Use it in practice
+## Gate an automated action
 
-For automated actions, prefer `fresh`, `complete`, and `provider_backed` or `db_mirror`. Treat `stale`, `partial`, and `unavailable` as weaker data.
+1. Reject `source.kind = "unavailable"`.
+2. Reject `completeness.status = "partial"` or `"unavailable"`.
+3. For `provider` and `database` values, require `freshness.status = "fresh"`.
+4. For `computed` values, accept `freshness.status = "unknown"`.
 
-```python
-def is_actionable(field_trust):
-    return (
-        field_trust["freshness"]["status"] == "fresh"
-        and field_trust["completeness"]["status"] == "complete"
-        and field_trust["reconciliation"]["status"] in ("provider_backed", "db_mirror")
-    )
-```
+Do not replace an `unavailable` value with `0`, `[]`, or `{}`. Show that the value is unavailable.
 
-During a trader sync, history fields can be `partial`. Kalshi has thinner coverage; see [Platforms](/concepts/platforms).
+## Related
+
+[Platforms](/concepts/platforms) lists which surfaces are `partial` or `unsupported` on Kalshi.

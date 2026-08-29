@@ -3,23 +3,30 @@ title: "Get Usage"
 openapi: "GET /api/v1/usage"
 ---
 
-Read the current request budget without spending primary quota.
+Read the current request budget. The read itself is free. Use this endpoint before a polling loop or a batch job.
 
-## Use this endpoint when
+## Read the budget
 
-Use this endpoint before a polling loop or batch job. It shows the current limiter window.
-
-The response includes the per-minute limiter window and UTC-day usage. This read does not increment primary quota or daily usage. It has its own 100-reads-per-minute guard.
-
-The daily `limit` and `remaining` fields are `null` because V1 has no daily hard cap.
+- `rate_limit.used`, `limit`, and `remaining` describe the 60-second sliding window. `window_seconds` is `60`.
+- `rate_limit.reset_at` is the Unix time of the next window boundary.
+- `daily_usage.used` counts requests since UTC midnight. It excludes calls to this endpoint.
+- `daily_usage.limit` and `remaining` are `null`. V1 has no daily cap, so do not infer one.
+- `daily_usage.reset_at` is the next UTC midnight. `window_seconds` is `86400`.
+- This read does not count against `rate_limit` or `daily_usage`.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/usage"
 ```
 
-Check quota here instead of using a data endpoint as a quota probe.
+## Handle the 429
 
-## Example: protect a polling loop
+This endpoint has its own guard of 100 reads per minute.
 
-Pause the loop when the remaining request count is low. Respect `Retry-After` if this endpoint returns `429`.
+1. Read `Retry-After` from the `429` response.
+2. Wait that many seconds.
+3. Send one request. Do not poll this endpoint in a tight loop.
+
+## Related
+
+The [rate limits guide](/rate-limits) explains the response headers on every other endpoint.

@@ -3,21 +3,34 @@ title: "Get Market Candles"
 openapi: "GET /api/v1/market/{condition_id}/candles"
 ---
 
-Get provider-first OHLC candles for each outcome token. The series uses stored daily price snapshots.
+Get OHLC candles for each outcome token of one market from stored daily price snapshots. Use this endpoint to chart a market over days or weeks.
 
-## Use this endpoint when
+## Read the candles
 
-Use this endpoint to chart a market over days or weeks. Open and resolved markets are supported.
+- `outcomes` has one entry per present token, `YES` first and then `NO`. Each carries `token_id`, `outcome`, and `candles`.
+- `candles` is sorted by `t`, oldest first. `t` is the bucket start in unix seconds. `o`, `h`, `l`, and `c` are prices in provider `[0, 1]` units.
+- `resolution` is `1d` (default) or `1w`. `1d` buckets by UTC calendar day. `1w` buckets by ISO week from Monday 00:00 UTC.
+- Stored data is daily. A `1d` bucket usually holds one point, so `o`, `h`, `l`, and `c` equal that day's close. A `1w` bucket aggregates real OHLC across the daily closes.
+- The API adds no intraday data.
+- `from` is an exclusive lower bound in unix seconds. `to` is an inclusive upper bound. With `1w`, a mid-week point can produce a candle whose `t` precedes `from`.
+- A market with no fetched tokens returns an empty `outcomes` array with status `200`.
+- Open and resolved markets both return candles.
 
-Use `resolution=1d` for daily points or `resolution=1w` for weekly points. Daily storage does not provide intraday data.
+## Handle the market ID
+
+1. Pass the raw `condition_id` from search or explore, or the `mkt_` market ID from any V1 response.
+2. A `trd_`, `wt_`, or `rf_` prefix returns `400 bad_request` with `error.param="condition_id"`.
+3. An unknown market returns `404 not_found`.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/market/0xabc.../candles?resolution=1w"
+  "https://api.0xinsider.com/api/v1/market/0x123.../candles?resolution=1w&from=1767225600"
 ```
 
-A market with no stored series returns empty outcome arrays. The API does not create candles from missing data.
+## Cache the candles
 
-## Example: draw a weekly price chart
+The 200 response carries an `ETag`. Send `If-None-Match` to get `304 Not Modified` with an empty body when nothing changed.
 
-Request `resolution=1w`, group the returned candles by outcome token, and leave an empty series empty.
+## Related
+
+[Get Market Snapshot](/api-reference/endpoint/get-market-snapshot) returns the current price and top of book for the same market.

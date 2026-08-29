@@ -1,68 +1,111 @@
 ---
 title: "Backtest a trader"
-description: "Compare a wallet's P&L series with its historical fills."
+description: "Compare a wallet's daily P&L series with its recorded fills."
 ---
 
-Use this recipe to compare a trader's historical returns with its fills.
+Compare a wallet's daily P&L curve with the fills behind it. Use this recipe before you follow a wallet or when you audit a grade.
 
-All requests need a Bearer key. See [Authentication](/authentication).
+Every request needs a Pro API key. See [Authentication](/authentication).
 
-## 1. The P&L series
+## 1. Read the P&L series
 
-[`GET /api/v1/trader/{address}/pnl`](/api-reference/endpoint/get-trader-pnl) returns a daily series, summary stats, and drawdowns:
+[`GET /api/v1/trader/{address}/pnl`](/api-reference/endpoint/get-trader-pnl) returns the precomputed daily series.
+
+- `entries` is the daily series. `cumulative_profit` is nullable. `daily_change` is not.
+- `stats` has `all`, `d90`, `d30`, and `d7`. Each window has `current`, `change`, `best_day`, `worst_day`, `win_days`, and `loss_days`.
+- `drawdown` is the underwater series. `monthly` and `year_totals` roll the series up.
+- `freshness_at` is the time of the last rebuild. It is null before the first rebuild.
+- A tracked wallet with no series returns an empty series and `200`. An unknown address returns `404`.
+- The series spans Polymarket and Kalshi where the read model has them.
 
 ```python
-import os, requests
+import os
+
+import requests
 
 BASE = "https://api.0xinsider.com/api/v1"
 H = {"Authorization": f"Bearer {os.environ['OXINSIDER_API_KEY']}"}
 
 addr = "0x204f72f35326db932158cba6adff0b9a1da95e14"
-pnl = requests.get(f"{BASE}/trader/{addr}/pnl", headers=H).json()["data"]
+pnl = requests.get(f"{BASE}/trader/{addr}/pnl", headers=H, timeout=30).json()["data"]
 
-print("all-time:", pnl["stats"]["all"])
-print("last 30d:", pnl["stats"]["d30"])
+print("as of:", pnl["freshness_at"])
+print("all-time:", pnl["stats"]["all"]["current"])
+print("last 30 days:", pnl["stats"]["d30"]["change"])
 
 for entry in pnl["entries"][-10:]:
     print(entry["date"], entry["cumulative_profit"], entry["daily_change"])
+
+for point in pnl["drawdown"][-3:]:
+    print(point["date"], point["cumulative_profit"], point["drawdown"])
 ```
 
-`entries` is the daily series. `monthly`, `year_totals`, and `drawdown` give longer views. `stats` includes `all`, `d90`, `d30`, and `d7` windows.
+## 2. Replay the fills
 
-## 2. The fill history
+[`GET /api/v1/whale-trades/history`](/api-reference/endpoint/get-whale-trades-history) replays stored whale alerts for one wallet and one window.
 
-To inspect the fills behind the curve, query [`GET /api/v1/whale-trades/history`](/api-reference/endpoint/get-whale-trades-history) with `trader`, `from`, and `to`:
+- `trader` accepts a wallet address or a username. An unknown trader returns an empty list.
+- `from` is inclusive and `to` is exclusive. Both are RFC3339. `to` must be after `from`.
+- `min_size` defaults to 5000 USD. The table holds whale alerts, not every fill.
+- Results are newest first. Page with `cursor` until `has_more` is `false`. See [Pagination](/concepts/pagination).
+- `meta.completeness.status` is `best_effort`. Coverage varies by market and window.
+- `platform` accepts `polymarket`, `kalshi`, or `all`.
 
 ```python
-fills = requests.get(
-    f"{BASE}/whale-trades/history",
-    params={
+fills = []
+cursor = None
+while True:
+    params = {
         "trader": addr,
         "from": "2026-01-01T00:00:00Z",
         "to": "2026-06-01T00:00:00Z",
         "limit": 100,
-    },
-    headers=H,
-).json()
+    }
+    if cursor:
+        params["cursor"] = cursor
+    page = requests.get(
+        f"{BASE}/whale-trades/history", params=params, headers=H, timeout=30
+    ).json()
+    fills += page["data"]
+    if not page["has_more"]:
+        break
+    cursor = page["next_cursor"]
 
-for tr in fills["data"]:
-    print(tr["traded_at"], tr["side"], tr["size_usd"], "@", tr["price"], tr["market"]["title"])
+for tr in fills:
+    print(
+        tr["traded_at"], tr["side"], tr["outcome"], tr["size_usd"],
+        "@", tr["price"], tr["market"]["title"],
+    )
 ```
 
-Use the cursor to read the full range. See [Pagination](/concepts/pagination).
+## 3. Rebuild one market position
 
-## 3. Per-market entries and exits
+[`GET /api/v1/trader/{address}/position-timeline`](/api-reference/endpoint/get-trader-position-timeline) returns every stored fill for one wallet in one market.
 
-For one market, use [position timeline](/api-reference/endpoint/get-trader-position-timeline) with a `condition_id`:
+- `condition_id` is required. It is the Polymarket condition ID.
+- Events are newest first. `running_amount` and `running_avg_price` are computed on the server.
+- `running_avg_price` does not change on a sell. It matches the Polymarket `avgPrice` basis.
+- `usdc_notional` is the positive fill value. `amount_delta` is signed: plus on a buy, minus on a sell.
+- The timeline exists only for wallets in the active sync tiers. A `404` with `error.reason="trader_not_tracked"` is terminal. Stop the requests for that wallet.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/traders/0x204f.../position-timeline?condition_id=0x123..."
+  "https://api.0xinsider.com/api/v1/trader/0x204f72f35326db932158cba6adff0b9a1da95e14/position-timeline?condition_id=0x123...&limit=100"
 ```
 
-## Scope and limits
+## 4. Compare the two views
 
-- Whale-trade history includes fills above the whale threshold. Use the P&L series for the full return view.
-- There is no closed-positions list. Use per-market timelines or the P&L series.
-- [`/trader/{address}/export`](/api-reference/endpoint/get-trader-export-snapshot) returns export metadata, not raw rows.
-- Backtest history is Polymarket-only; see [Platforms](/concepts/platforms).
+1. Group the fills from step 2 by `traded_at` date.
+2. Match each date to the `entries` point with the same `date`.
+3. Do not read a `daily_change` as a fill. The history holds whale alerts only.
+4. Open the timeline in step 3 for each `market.condition_id` with a large `daily_change`.
+
+## Scope
+
+- There is no closed-positions list. Use the timeline per market.
+- [`GET /api/v1/trader/{address}/export`](/api-reference/endpoint/get-trader-export-snapshot) returns export metadata, not rows. Use [`POST /api/v1/trader/{address}/export`](/api-reference/endpoint/submit-trader-export) for a full dataset job.
+- The timeline is Polymarket only. `token_id` is null on a Kalshi row.
+
+## Related
+
+[Copy-trade signals](/recipes/copy-trade) builds a follow list from the leaderboard. [Grades](/concepts/grades) explains the letter on each wallet.

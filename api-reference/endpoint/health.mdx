@@ -3,24 +3,25 @@ title: "Health Check"
 openapi: "GET /api/v1/health"
 ---
 
-Check API liveness and database and cache status. The endpoint needs no auth.
+Check API liveness, database and cache connectivity, and background job health. No key is needed. Use it for a status page or a startup check.
 
-## Use this endpoint when
+## Read the status
 
-Use this endpoint for a status page or a startup check before you use an API key.
+- `status` is `ok`, `degraded`, `down`, or `maintenance`. `db` and `cache` are booleans.
+- `status` is `down` when the database probe fails or background jobs are down. `maintenance` marks a planned window; then `db` and `cache` read `true` without a probe.
+- `subsystems.background_jobs.status` is `ok`, `degraded`, `down`, or `not_checked`. The counts (`total`, `healthy`, `stale`, `missing`, `invalid`, `unconfigured`, `paused`) are aggregates only.
+- `paused` counts heavy jobs idle while the heavy executor is off. A paused job yields `degraded`, never `down`.
+- The response exposes no job names, Redis keys, raw errors, wallet addresses, or condition IDs.
+- The limit is 120 requests per minute per IP. Past that, the endpoint returns `429` with `Retry-After`.
 
 ```bash
-curl https://api.0xinsider.com/api/v1/health
+curl "https://api.0xinsider.com/api/v1/health"
 ```
 
-```json
-{
-  "object": "health",
-  "data": { "status": "ok", "db": true, "cache": true },
-  "meta": { "request_id": "req_abc123", "cached": false }
-}
-```
+## Cache the status
 
-## Example: gate a worker start
+The response carries an `ETag`. Send it as `If-None-Match` to get `304 Not Modified` with an empty body when the status is unchanged.
 
-Start the worker only when the response is `200` and `data.status` is `ok`. Log `meta.request_id` when the check fails.
+## Related
+
+[Get API Discovery](/api-reference/endpoint/get-api-discovery) returns this endpoint's URL as `health_url`.

@@ -1,78 +1,67 @@
 ---
 title: "Authentication"
-description: "Create, send, and rotate 0xinsider API keys."
+description: "Send, create, and rotate 0xinsider API keys."
 ---
 
-Most data endpoints need a Bearer token. Discovery, OpenAPI, health, and
-platforms are public. Remote MCP also needs a Bearer token:
+Send an API key as a Bearer token on every data endpoint. Use this page when you set up a key or when a request returns `401`, `402`, `403`, or `423`.
+
+## Send the key
 
 ```bash
-Authorization: Bearer oxi_sk_live_...
+curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
+  https://api.0xinsider.com/api/v1/usage
 ```
 
-## The key
+- Discovery (`GET /api/v1`), the OpenAPI redirect, `GET /api/v1/platforms`, and `GET /api/v1/health` are public.
+- Every other `/api/v1/*` endpoint needs the Bearer token.
+- Remote MCP at `/api/v1/mcp` needs the same Bearer token. The `?token=` query form is a legacy path. Avoid it, because URL secrets land in logs and shell history.
 
-| Property | Value |
-|---|---|
-| Format | `oxi_sk_live_` + 64 hex chars (76 chars total) |
-| Storage on our side | HMAC-SHA256 hash. We never store plaintext. |
-| Active keys per account | 1. Regenerating revokes the old key. |
-| Where to generate | [0xinsider.com/developers](https://0xinsider.com/developers) |
+## Know the key format
 
-The dashboard shows the full key once. Later it shows only the prefix (`oxi_sk_live_XXXX`).
+- A key is `oxi_sk_live_` followed by 64 hex characters, 76 characters in total.
+- The server stores an HMAC-SHA256 hash. It never stores the plaintext.
+- Each account holds one active key. A second create request returns `409 Conflict`.
+- The dashboard shows the full key once. Later it shows only the prefix and the first four hex characters.
 
 ## Create a key
 
 1. Log in at [0xinsider.com](https://0xinsider.com).
 2. Open [Developers](https://0xinsider.com/developers).
-3. Click **Generate Key**.
-4. Copy it immediately.
+3. Click **Generate token**.
+4. Copy the key before you leave the page.
 
-## Common mistakes
+## Rotate a key
+
+<Warning>
+  Rotation revokes the current key at once. Every consumer that still sends the old key gets `401 invalid_api_key` until you update it.
+</Warning>
+
+1. Open [Developers](https://0xinsider.com/developers).
+2. Click **Rotate**. The page shows the new key once.
+3. Update every consumer: `.env` files, deployed secrets, CI secrets, and MCP client configs.
+
+Rotate at once if a key appears in a log, a commit, or a shared terminal.
+
+## Fix an auth error
 
 <AccordionGroup>
-  <Accordion title="Missing 'Bearer' prefix in the header">
-    Wrong:
-    ```
-    Authorization: oxi_sk_live_...
-    ```
-    Right:
-    ```
-    Authorization: Bearer oxi_sk_live_...
-    ```
-    Without the `Bearer` prefix you get `401 invalid_api_key`.
+  <Accordion title="401 invalid_api_key">
+    - Send `Authorization: Bearer oxi_sk_live_...`. A header without `Bearer ` fails.
+    - Count the characters. A full key has 76. A shorter value is a partial copy.
+    - After a rotation the account has one valid key. Update every consumer that still holds the old one.
   </Accordion>
-  <Accordion title="Pasting only part of the key">
-    The full key is 76 characters. Anything shorter is a partial copy.
+  <Accordion title="402 subscription_required">
+    The key is valid, but the account has no active Pro subscription. Re-subscribe at [Pricing](https://0xinsider.com/pricing). The same key resumes.
   </Accordion>
-  <Accordion title="Hitting an authenticated endpoint without a subscription">
-    A valid key with an expired subscription returns `402 subscription_required`. Re-subscribe at [pricing](https://0xinsider.com/pricing); the same key resumes.
+  <Accordion title="403 forbidden">
+    The account was deleted, or the request IP is blocked. Contact [support@0xinsider.com](mailto:support@0xinsider.com).
   </Accordion>
-  <Accordion title="Reusing an old key after regenerating">
-    Regenerating revokes the old key in the same call. Update every place it lives: `.env` files, deployed secrets, MCP configs.
+  <Accordion title="423 account_locked">
+    The account is locked. Contact [support@0xinsider.com](mailto:support@0xinsider.com).
   </Accordion>
 </AccordionGroup>
 
-## If a key is exposed
-
-Rotate it at once:
-
-1. Go to [Developers](https://0xinsider.com/developers).
-2. Click **Regenerate Key**. The old key dies immediately.
-3. Roll the new key into every consumer: bots, MCP configs, CI secrets, dashboards.
-
-## Key management endpoints
-
-These routes manage your keys in the dashboard. They use the session cookie (JWT), not an API key.
-
-| Action | Method | Endpoint |
-|---|---|---|
-| Create key | `POST` | `/api/keys` |
-| List keys | `GET` | `/api/keys` |
-| Revoke key | `DELETE` | `/api/keys/{id}` |
-| Regenerate | `POST` | `/api/keys/regenerate` |
-
-## A subscription-blocked response
+A `402` body looks like this:
 
 ```json
 {
@@ -80,7 +69,25 @@ These routes manage your keys in the dashboard. They use the session cookie (JWT
   "error": {
     "code": "subscription_required",
     "message": "Active Pro subscription required.",
-    "doc_url": "https://docs.0xinsider.com/authentication"
-  }
+    "doc_url": "https://docs.0xinsider.com/api-reference/introduction#authentication",
+    "param": null
+  },
+  "meta": { "request_id": "req_example", "cached": false, "cost": 1 }
 }
 ```
+
+## Manage keys from the dashboard
+
+The dashboard uses these first-party routes. They use the session cookie, not an API key, and accept only 0xinsider origins.
+
+| Action | Method | Route |
+|---|---|---|
+| Create key | `POST` | `/api/keys` |
+| List keys | `GET` | `/api/keys` |
+| Revoke key | `DELETE` | `/api/keys/{id}` |
+| Regenerate key | `POST` | `/api/keys/regenerate` |
+| Read key usage | `GET` | `/api/keys/usage` |
+
+## Related
+
+[Errors](/errors) lists every `error.code`. [Rate Limits](/rate-limits) explains the budgets a key shares.

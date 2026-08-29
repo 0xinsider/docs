@@ -1,42 +1,83 @@
 ---
 title: "Errors"
-description: "Read API error codes and recover from failed requests."
+description: "Read the error envelope, branch on code and reason, and honor Retry-After."
 ---
 
-Most errors use the JSON envelope below. `408 Request Timeout` is different: the
-30-second transport timeout returns an empty body. Check the status before parsing JSON.
+Every error except `408` returns a JSON envelope. Branch on `error.code`, then on `error.reason`, and honor `Retry-After` on the four retryable errors.
+
+## Read the envelope
 
 ```json
 {
   "object": "error",
   "error": {
-    "code": "invalid_api_key",
-    "message": "Invalid or missing API key.",
-    "doc_url": "https://docs.0xinsider.com/authentication",
-    "param": null
+    "code": "not_found",
+    "message": "No pick of the day is published yet. Recommended next retry at 2026-08-29T14:00:00+00:00. Schedule against error.retry_at or the Retry-After header instead of polling.",
+    "doc_url": "https://docs.0xinsider.com/api-reference/endpoint/get-pick-of-the-day",
+    "param": null,
+    "reason": "pick_not_released",
+    "retry_at": "2026-08-29T14:00:00+00:00"
   },
-  "meta": {
-    "request_id": "req_550e8400"
-  }
+  "meta": { "request_id": "req_example", "cached": false, "cost": 1 }
 }
 ```
 
-Use `error.code` in code. Include `meta.request_id` in support requests.
+| Field | Meaning |
+|---|---|
+| `error.code` | One of nine stable values. Branch on it in code. |
+| `error.message` | Text for a log line. Do not parse it. |
+| `error.doc_url` | Link to the page that explains the error. Can be `null`. |
+| `error.param` | The request parameter at fault on a `400`. Can be `null`. |
+| `error.reason` | A more specific cause, present only when one exists. |
+| `error.retry_at` | RFC3339 instant of the next useful request. Present only on retryable errors. |
+| `meta.request_id` | Include it in a support request. |
 
-## Error codes
+<Warning>
+  `408 Request Timeout` has an empty body. The 30-second transport timeout fires before the server builds the JSON envelope. Check the status before you parse.
+</Warning>
 
-| HTTP | `error.code` | What happened | What to do |
+## Branch on the code
+
+| HTTP | `error.code` | Cause | Action |
 |---|---|---|---|
-| `400` | `bad_request` | A parameter was invalid. Check `error.param` when present; otherwise use `error.message`. | Fix the input. |
-| `401` | `invalid_api_key` | Key missing, malformed, or revoked. | Re-check the `Authorization` header. |
-| `402` | `subscription_required` | Key is valid, but no active Insider sub. | Subscribe at [pricing](https://0xinsider.com/pricing). |
-| `403` | `forbidden` | The account was deleted. | Contact support. |
-| `404` | `not_found` | The trader / market / resource does not exist. | Verify the ID. |
-| `408` | - | The public API request exceeded the 30-second transport timeout. The body is empty. | Retry once. Do not attempt to parse JSON. |
-| `423` | `account_locked` | Account is suspended. | Contact support. |
-| `429` | `rate_limited` | Over 100 req/min (or 2500 batch item units/min). | Sleep `Retry-After` seconds and retry. See [Rate Limits](/rate-limits). |
-| `500` | `internal_error` | Bug on our side. | Retry. Include `meta.request_id` if you contact us. |
-| `503` | `rate_limit_unavailable` | With `error.reason="read_model_warming"`, this endpoint cannot serve its read model yet. The exact cause is endpoint-specific. Without a reason, the authenticated rate limiter is unavailable and has failed closed. | Branch on `error.reason`. For read-model unavailability, retry only this route after `Retry-After` and consult its endpoint contract. Do not infer dependency health or apply a shared rate-limit backoff. |
+| `400` | `bad_request` | A parameter is invalid. | Read `error.param`, then `error.message`. Fix the input. |
+| `401` | `invalid_api_key` | The key is missing, malformed, or revoked. | Check the `Authorization` header. See [Authentication](/authentication). |
+| `402` | `subscription_required` | The key is valid, but the account has no active Pro subscription. | Subscribe at [Pricing](https://0xinsider.com/pricing). |
+| `403` | `forbidden` | The account was deleted, or the request IP is blocked. | Contact support. |
+| `404` | `not_found` | The resource does not exist, or `error.reason` names a specific cause. | Branch on `error.reason`. |
+| `408` | none | The request exceeded the 30-second transport timeout. | Retry once. Do not parse the body. |
+| `409` | `bad_request` | A webhook mutation with the same `Idempotency-Key` is still in progress. | Retry with the same key and body. |
+| `423` | `account_locked` | The account is locked. | Contact support. |
+| `429` | `rate_limited` | The request budget or the batch item budget is spent. | Wait `Retry-After` seconds. See [Rate Limits](/rate-limits). |
+| `500` | `internal_error` | A server bug. | Retry once. Send `meta.request_id` to support. |
+| `503` | `rate_limit_unavailable` | The rate limiter is unavailable, or `error.reason` is `read_model_warming`. | Branch on `error.reason`. |
+
+## Branch on the reason
+
+`error.reason` is additive. `error.code` keeps its published value, so an old client still works.
+
+| `error.reason` | HTTP | Meaning | Action |
+|---|---|---|---|
+| `pick_not_released` | `404` | No pick is published for the current product day. | Schedule one request for `retry_at`. Do not poll. |
+| `unknown_endpoint` | `404` | The path is not a route on this API. | Read `GET /api/v1`. Do not retry. |
+| `trader_not_tracked` | `404` | The wallet is real, but the trader sits outside the sync tiers. | Stop requesting this wallet. |
+| `cursor_expired` | `400` | The cursor went stale after an upstream refresh. `error.param` is `cursor`. | Request the first page again and walk forward. |
+| `read_model_warming` | `503` | This endpoint cannot serve its read model yet. | Retry only this route after `Retry-After`. Do not back off other routes. |
+| `idempotency_in_progress` | `409` | A request with the same `Idempotency-Key` is still in progress. | Retry with the same key and body. |
+| `webhook_delivery_in_progress` | `409` | The destination has an active delivery. `error.param` is `endpoint`. | Retry the change after the delivery ends. |
+
+A `503` with no `reason` means the rate limiter failed closed. Back off every authenticated route for `Retry-After` seconds.
+
+## Honor Retry-After
+
+Four errors carry `Retry-After` in seconds and `error.retry_at` as an RFC3339 instant:
+
+- `429 rate_limited`
+- `503 rate_limit_unavailable` with no reason
+- `503` with `error.reason="read_model_warming"`
+- `404` with `error.reason="pick_not_released"`
+
+Both name the same instant. Use the header for the sleep duration, because it is immune to clock skew. Use `retry_at` to schedule an absolute wake.
 
 ## Handle errors in code
 
@@ -51,21 +92,21 @@ async function call(path, opts = {}) {
     throw new Error("0xinsider request exceeded the 30-second transport timeout");
   }
   const body = await res.json();
+  if (res.ok) return body;
 
-  if (!res.ok) {
-    const { code, message, param } = body.error;
-    if (code === "rate_limited") {
-      const wait = Number(res.headers.get("retry-after") ?? 1) * 1000;
-      await new Promise(r => setTimeout(r, wait));
-      return call(path, opts);
-    }
-    if (code === "subscription_required") {
-      throw new Error("Pro subscription required");
-    }
-    throw new Error(`${code}: ${message}${param ? ` (param=${param})` : ""}`);
+  const { code, message, param, reason } = body.error;
+  const retryAfter = res.headers.get("retry-after");
+  if (retryAfter && reason !== "pick_not_released") {
+    await new Promise(r => setTimeout(r, Number(retryAfter) * 1000));
+    return call(path, opts);
   }
-
-  return body;
+  if (reason === "cursor_expired") {
+    throw new Error("cursor expired: restart from the first page");
+  }
+  if (code === "subscription_required") {
+    throw new Error("Pro subscription required");
+  }
+  throw new Error(`${code}: ${message}${param ? ` (param=${param})` : ""}`);
 }
 ```
 
@@ -83,38 +124,47 @@ def call(path, **params):
     if r.ok:
         return body
 
-    code = body["error"]["code"]
-    if code == "rate_limited":
-        time.sleep(int(r.headers.get("Retry-After", "1")))
+    err = body["error"]
+    retry_after = r.headers.get("Retry-After")
+    if retry_after and err.get("reason") != "pick_not_released":
+        time.sleep(int(retry_after))
         return call(path, **params)
-    if code == "subscription_required":
+    if err.get("reason") == "cursor_expired":
+        raise RuntimeError("cursor expired: restart from the first page")
+    if err["code"] == "subscription_required":
         raise RuntimeError("Pro subscription required")
-    raise RuntimeError(f"{code}: {body['error']['message']}")
+    raise RuntimeError(f"{err['code']}: {err['message']}")
 ```
 </CodeGroup>
 
-## Batch item errors
+Schedule a `pick_not_released` wake with a timer or a queue. Do not sleep a worker thread on it.
 
-Batch endpoints can return `200 OK` with failed items. Read `data[i].status` and `data[i].error` for every item.
+## Read batch item errors
+
+A batch endpoint can return `200` with failed items. Read `data[i].status` for every item. When `status` is `error`, `data[i].error` carries `code` and `message` in the same shape as `error` above.
 
 ## Fix common errors
 
 <AccordionGroup>
   <Accordion title="401 invalid_api_key">
-    - The header needs `Authorization: Bearer oxi_sk_live_...`.
-    - The key is 76 characters. Confirm you copied the full string.
-    - If you regenerated, the old key is dead. Update every consumer.
+    - Send `Authorization: Bearer oxi_sk_live_...`.
+    - A full key has 76 characters. Copy the full string.
+    - A regenerated key revokes the old one. Update every consumer.
   </Accordion>
   <Accordion title="402 subscription_required">
-    The key is fine; billing is not. Re-subscribe at [pricing](https://0xinsider.com/pricing) and the same key resumes.
+    The key is fine. The subscription is not. Re-subscribe at [Pricing](https://0xinsider.com/pricing). The same key resumes.
   </Accordion>
   <Accordion title="429 rate_limited">
-    Sleep `Retry-After` seconds, then retry. See the backoff example in [Rate Limits](/rate-limits).
+    Wait `Retry-After` seconds, then retry. See the backoff example in [Rate Limits](/rate-limits#handle-a-429).
   </Accordion>
-  <Accordion title="400 bad_request on Market Intel with a prefixed ID">
-    Market Intel takes the raw `condition_id` or the `mkt_...` market ID from V1 responses. It rejects non-market prefixes (`trd_`, `wt_`, `rf_`) with `400 bad_request`. If you only have one of those, resolve the market first via [`/markets/search`](/api-reference/endpoint/search-markets).
+  <Accordion title="400 bad_request">
+    Read `error.param`. When it is `cursor` and `error.reason` is `cursor_expired`, request the first page again. Otherwise fix the named parameter.
   </Accordion>
   <Accordion title="500 internal_error">
-    Retry once. If it persists, email [support@0xinsider.com](mailto:support@0xinsider.com) with the `meta.request_id` from the response.
+    Retry once. If it persists, email [support@0xinsider.com](mailto:support@0xinsider.com) with `meta.request_id`.
   </Accordion>
 </AccordionGroup>
+
+## Related
+
+[Get Pick of the Day](/api-reference/endpoint/get-pick-of-the-day) shows the `pick_not_released` schedule. [Pagination](/concepts/pagination) shows cursor recovery.

@@ -3,21 +3,27 @@ title: "Get Trader Context"
 openapi: "GET /api/v1/trader/{address}/context"
 ---
 
-Return one structured trader briefing. It includes the profile, position and sync coverage, P&L rollups, and freshness metadata.
+Get one JSON briefing for a trader: the full profile, a position summary, and a freshness clock. Use it when an agent or a panel needs one current trader summary.
 
-## Use this endpoint when
+## Read the briefing
 
-Use this endpoint when an agent or dashboard needs one current trader summary in JSON.
-
-The path accepts a wallet address, username, or `trd_...` trader ID. An unknown trader returns `200` with `sync_status: "unknown"`. The API omits `position_summary` when no local row exists.
+- `address` accepts a `0x...` wallet address, a known username, or a `trd_`-prefixed trader ID.
+- `trader` has the same shape as [Get Trader](/api-reference/endpoint/get-trader), with `strategy` and `category_strengths` always present. It never includes `quant_metrics` or `trust`.
+- `position_summary` is absent, not `null`, when the trader is not in the local database.
+- `position_summary.sync_coverage` is `markets_synced` divided by `markets_total`, capped at 1.0. When `markets_total` is `null`, any synced market yields 1.0, so check `markets_total` before you read 1.0 as full coverage.
+- `position_summary.total_realized_pnl` covers synced markets only. It is not provider all-time realized P&L when `sync_coverage` is below 1.0.
+- `data_as_of` is the open-position clock: the latest positions snapshot, else the last completed sync. Resolved and closed aggregates date to the last full sync.
+- An unknown trader returns `200` with `trader.sync_status: "unknown"` and no `position_summary`.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/trader/swisstony/context"
 ```
 
-The JSON route returns an `ETag`. Send it with `If-None-Match` for a conditional read. Use the [Markdown variant](/api-reference/endpoint/get-trader-context-markdown) for readable output.
+## Cache the briefing
 
-## Example: refresh a trader panel
+The response carries an `ETag`. Send it as `If-None-Match` to get `304 Not Modified` with an empty body when nothing changed.
 
-Request the JSON brief, show its freshness fields, and refresh only when the `ETag` changes.
+## Related
+
+[Get Trader Context as Markdown](/api-reference/endpoint/get-trader-context-markdown) returns the same briefing as one Markdown document.

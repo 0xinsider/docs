@@ -1,59 +1,56 @@
 ---
 title: "Rate Limits"
-description: "Read request limits and retry after a 429 response."
+description: "Read the request and batch budgets, read the headers, and retry after a 429 response."
 ---
 
-Each user gets **100 requests per minute** in a sliding window. All keys and endpoints share this limit.
+Each user gets 100 requests per minute across every key and every authenticated endpoint. Use this page to size a polling loop and to handle a `429` response.
 
-Batch reads use a second budget of **2500 item units per minute**. A 25-item batch uses 25 item units before it runs.
+## Know the budgets
 
-`GET /api/v1/usage` does not use the primary quota or daily usage count. It has its own 100 reads/minute guard.
+- The request budget is 100 requests per minute per user in a sliding window. All keys on the account share it.
+- The batch routes (`POST /api/v1/traders/batch` and `POST /api/v1/markets/intel/batch`) also reserve one item unit per requested item from a budget of 2500 item units per minute. Duplicate and invalid items count.
+- 2500 is 100 requests times 25 items. A full minute of 25-item batches fits inside the item budget, so the request budget is the effective ceiling.
+- The item budget can still deny at a window boundary. Honor a `429` from either budget.
+- `GET /api/v1/usage` does not spend the request budget. It has its own guard of 100 reads per minute per user.
+- `GET /api/v1/health` is public and limited to 120 requests per minute per IP.
+- `GET /api/v1/stream` caps concurrent connections per key. A connection over the cap returns `429` with `Retry-After`.
 
-| Setting | Value |
-|---|---|
-| Requests per minute | 100 |
-| Usage reads per minute | 100 |
-| Batch item units per minute | 2500 |
-| Window type | Sliding (not bucket-of-60-seconds) |
-| Scope | Per user (sum of all keys) |
-| Header on success | `X-RateLimit-*` (+ `X-Batch-RateLimit-*` on batch endpoints) |
-| Header on `429` | `Retry-After` |
+## Read the headers
 
-## Read these headers
-
-Every authenticated response carries:
+Every authenticated response carries the standard and the legacy spelling:
 
 ```
+RateLimit-Limit:       100
+RateLimit-Remaining:   84
+RateLimit-Reset:       42
 X-RateLimit-Limit:     100
-X-RateLimit-Remaining: 87
-X-RateLimit-Reset:     1774450631
+X-RateLimit-Remaining: 84
+X-RateLimit-Reset:     1710772860
 X-Request-Id:          req_550e8400
 ```
 
 | Header | Meaning |
 |---|---|
-| `X-RateLimit-Limit` | Max requests per minute. |
-| `X-RateLimit-Remaining` | Remaining slots in the current window. |
+| `RateLimit-Limit` | Requests allowed per window. |
+| `RateLimit-Remaining` | Requests left in the current window. |
+| `RateLimit-Reset` | Seconds until the window resets. |
 | `X-RateLimit-Reset` | Unix timestamp (seconds) when the window resets. |
-| `X-Request-Id` | Request identifier to include when reporting a support issue. |
+| `X-Request-Id` | Request identifier. Include it in a support request. |
 
-Batch responses additionally carry:
+Batch responses add four headers:
 
 | Header | Meaning |
 |---|---|
-| `X-Request-Cost` | Item units this single call charged (one per batch item). |
-| `X-Batch-RateLimit-Limit` | Max item units per minute. |
-| `X-Batch-RateLimit-Remaining` | Item units remaining in the window. |
-| `X-Batch-RateLimit-Reset` | Unix timestamp when the batch window resets. |
+| `X-Request-Cost` | Item units this call charged. |
+| `X-Batch-RateLimit-Limit` | Item units allowed per minute. |
+| `X-Batch-RateLimit-Remaining` | Item units left in the current window. |
+| `X-Batch-RateLimit-Reset` | Unix timestamp when the item window resets. |
 
-Browser clients can read these headers on public REST `/api/v1/*` responses.
-The public API also exposes
-`Retry-After`, `ETag`, `X-Request-Id`, `X-Request-Cost`, `Mcp-Session-Id`, and
-`X-Mcp-Error-Code`. Remote MCP at `/api/v1/mcp` still validates `Origin`
-against the 0xinsider/localhost allowlist. Do not use credentialed CORS for
-public API calls; send only the Bearer token header.
+Browser JavaScript can read every header above on `/api/v1/*` responses.
 
-If you exceed either budget, the API returns `429` and `Retry-After` in seconds:
+## Handle a 429
+
+An over-budget request returns `429` before any work runs:
 
 ```
 HTTP/1.1 429 Too Many Requests
@@ -66,12 +63,19 @@ Retry-After: 12
   "error": {
     "code": "rate_limited",
     "message": "Rate limit exceeded. Retry after 12s.",
-    "doc_url": "https://docs.0xinsider.com/rate-limits"
-  }
+    "doc_url": "https://docs.0xinsider.com/api-reference/introduction#rate-limits",
+    "param": null,
+    "retry_at": "2026-08-29T12:00:12Z"
+  },
+  "meta": { "request_id": "req_example", "cached": false, "cost": 1 }
 }
 ```
 
-## Retry after `429`
+1. Read `Retry-After` in seconds. `error.retry_at` names the same instant as RFC3339.
+2. Wait that many seconds.
+3. Retry once. Cap the retry count.
+
+Read `Retry-After` on every retryable error, not only on `429`. See [Errors](/errors#honor-retry-after).
 
 <CodeGroup>
 ```javascript JavaScript
@@ -112,18 +116,31 @@ body = get_with_backoff(
 ```
 </CodeGroup>
 
-## Keep requests within the limit
+## Stay under the budget
 
-- **Cache.** Reuse data instead of polling every second.
-- **Paginate.** Use cursors instead of fetching the same first page.
-- **Use a larger `limit`.** One request with `limit=100` costs less than ten requests with `limit=10`.
-- **Batch known IDs.** One batch call uses one regular request and one item unit per item.
-- **Watch `X-RateLimit-Remaining`.** Pause when it is low.
-- **Use `/usage`.** It reads the primary window but has its own 100 reads/minute limit.
-- **Use one poller.** Do not let every process share the same polling loop.
+- Cache responses. Do not poll every second.
+- Paginate with `cursor`. Do not re-read the first page.
+- Use a larger `limit`. One request with `limit=100` costs one request.
+- Batch known IDs. One batch call costs one request and one item unit per item.
+- Watch `RateLimit-Remaining`. Pause when it is low.
+- Run one poller per account. Do not let each process poll on its own.
+- Use conditional GETs on read endpoints.
 
-## Conditional GETs
+## Use conditional GETs
 
-Deterministic read endpoints return an `ETag`. Send it as `If-None-Match` to get `304 Not Modified` when the body did not change.
+Deterministic read endpoints return an `ETag`. Send it as `If-None-Match` to get `304 Not Modified` with an empty body when the payload did not change.
 
-Examples include trader and position reads, whale-trade and leaderboard lists, market exploration and intelligence, Sports Edge signals and observations, position timelines, and health responses. Check each endpoint's OpenAPI response table for authoritative `304` support. Report snapshots are not conditional because their body includes a request-time `generated_at`.
+Endpoints with a `304` response:
+
+- Trader, trader context (JSON), trader P&L, and position timeline.
+- Positions, large positions, whale trades, whale trade by ID, and whale trades history.
+- Leaderboard, trending wallets, Pick of the Day, and its archive.
+- Explore markets, smart-money flows, sharp-money flows, sports-edge signals, and sports-edge observations.
+- Market intel, market snapshot, and market candles.
+- Insider radar, single radar flags, and health.
+
+Report snapshots return no `ETag`. Check each endpoint's response table for `304`.
+
+## Related
+
+[Get API usage](/api-reference/endpoint/get-usage) returns the current window. [Errors](/errors) lists every retryable error.

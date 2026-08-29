@@ -4,26 +4,32 @@ sidebarTitle: "Position timeline"
 openapi: "GET /api/v1/trader/{address}/position-timeline"
 ---
 
-Get the fill history for one trader and market. Each fill includes server-computed amount and average entry price.
+Get the fill history for one trader in one market, newest first, with a server-computed running amount and entry basis. Use it to show how a trader built or closed a position.
 
-## Use this endpoint when
+## Read the timeline
 
-Use this endpoint to explain how a trader built or closed a position. Do not recompute the running values in your client.
+- `address` accepts a `0x...` wallet, a username, a `trd_`-prefixed id, or a bare integer `traders.id`. The resolver checks wallet, then `trd_`, then integer, then username. A wallet lookup ignores case.
+- `condition_id` is required. One timeline covers one trader in one market.
+- Each fill has `action` (`buy` or `sell`, from the taker side), `outcome_side`, `amount_delta`, `price`, `usdc_notional`, and `tx_hash`.
+- `running_amount` is the signed share balance after the fill. `running_avg_price` is the buy-weighted entry basis; a sell does not change it. Do not recompute either value.
+- `token_id` is the Polymarket CLOB token id for the outcome, or `null` when unavailable.
+- `limit` is 1 to 100, default 20. When `has_more` is `true`, pass `next_cursor` as `cursor`.
+
+## Handle the 404
+
+1. Read `error.reason`.
+2. `trader_not_tracked`: the trader exists but sits outside the HOT and WARM sync tiers, so no timeline exists. There is no `Retry-After` and no `retry_at`. Do not request this trader again.
+3. No `reason`: the identity does not resolve. Check the value you sent.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/trader/0x863134d00841b2e200492805a01e1e2f5defaa53/position-timeline?condition_id=0xabc..."
 ```
 
-The `address` path segment accepts these trader identities:
+## Cache the timeline
 
-- wallet address, such as `0x863...`
-- known username
-- `trd_`-prefixed trader ID
-- bare integer `traders.id`
+The response carries an `ETag`. Send it as `If-None-Match` to get `304 Not Modified` when no new fill arrived.
 
-The server checks wallet, `trd_` ID, integer ID, then username. Use [Get Trader Position Timeline](/api-reference/endpoint/get-trader-position-timeline) when you need its plural alias path.
+## Related
 
-## Example: explain a position
-
-Pass the market `condition_id`, then render each fill in response order with its running amount and average price.
+[Get Positions](/api-reference/endpoint/get-positions) lists current positions across traders and markets.

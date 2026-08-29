@@ -1,114 +1,95 @@
 ---
 title: "Trader Grades"
-description: "Use trader grades to filter profiles and whale trades."
+description: "Read the S to F trader grade, its score band, and the min_grade filter."
 ---
 
-Each trader has one letter grade. It is a first-pass quality filter.
+A grade is one letter, `S` to `F`, on each tracked Polymarket wallet. Use it to filter traders, trades, and positions before you read anything else.
 
-The grade appears on leaderboards, trader profiles, and whale trades.
+## Read the scale
 
-## The scale
-
-| Grade | One-line meaning | On the leaderboard? |
+| Grade | `score` band | On the leaderboard |
 |---|---|---|
-| **S** | Elite record with high P&L, win rate, and volume. | Yes |
-| **A** | Strong and consistent record across markets. | Yes |
-| **B** | Above average, with a smaller sample. | Yes |
-| **C** | Near breakeven. | No |
-| **D** | Net losing record. | No |
-| **F** | Persistent losses or random behavior. | No |
+| `S` | 99.7 to 100 | Yes |
+| `A` | 98.2 to 99.7 | Yes |
+| `B` | 90 to 98.2 | Yes |
+| `C` | 55 to 90 | No |
+| `D` | 15 to 55 | No |
+| `F` | 0 to 15 | No |
 
-The leaderboard includes S, A, and B traders.
+- `score` is the cohort percentile of the composite, 0 to 100, clamped inside the grade band.
+- A trader never sorts across a grade boundary. Sort by `score` inside one grade.
+- `grade` and `score` are absent for a trader with fewer than 5 markets.
+- The grade is relative to the cohort. It moves when the cohort moves.
+- Kalshi prints are anonymous and carry no grade. See [Platforms](/concepts/platforms).
 
-## What goes into the grade
+## Know what sets the grade
 
-The score is a 0-100 composite of five inputs:
+The composite is `0.95 x realized P&L percentile + 0.05 x skill blend`.
 
-1. **Realized P&L**: profit from closed positions.
-2. **Win rate**: share of markets resolved in their favor.
-3. **Volume**: total traded size.
-4. **Market count**: distinct markets traded.
-5. **Recency**: recent trading activity.
+- Realized P&L is the all-time total P&L minus open-position P&L. Its cohort percentile carries 95 percent of the composite.
+- The skill blend is a tie-breaker between traders with near-identical realized P&L. Its inputs and weights: calibration edge 0.27, resolved-market track record 0.22, max drawdown 0.16, equity smoothness 0.14, win rate 0.13, Sortino 0.08.
+- Each input is shrunk for sample size, then ranked inside the cohort.
 
-Score thresholds assign the letter. Only B or better appears on the leaderboard.
+Guardrails cap a band assignment:
 
-## Two real profiles, side by side
+- A grade above `C` needs net-positive realized P&L.
+- `B` needs 10 or more resolved markets.
+- `A` needs 50 or more resolved markets, $20,000 or more volume, calibration data, and a max drawdown at or under 60 percent.
+- `S` needs 200 or more resolved markets, $50,000 or more volume, positive edge, and a max drawdown at or under 60 percent.
+- A trader idle for more than 365 days is capped at `C`.
 
-### S-grade: deep history, sustained edge
+Promotion floors lift a proven winner that the percentile under-ranks. Each floor needs positive edge, profit, a max drawdown at or under 60 percent, and recent activity:
+
+- 1,000 or more resolved markets and $20,000 or more volume guarantee at least `A`.
+- 1,000 or more resolved markets and $1,000,000 or more realized P&L guarantee `S`.
+- 200 or more resolved markets and a composite at or above the `C` band unlock the P&L ladder. Realized P&L of $1,000,000 gives `S`, $250,000 gives `A`, and $100,000 gives `B`.
+
+## Read a graded trader
 
 ```json
 {
   "object": "trader",
   "data": {
-    "id": "trd_0x863134d00841b2e200492805a01e1e2f5defaa53",
-    "username": "RepTrump",
+    "id": "trd_0x204f72f35326db932158cba6adff0b9a1da95e14",
+    "address": "0x204f72f35326db932158cba6adff0b9a1da95e14",
+    "username": "swisstony",
     "grade": "S",
-    "score": 97.94,
-    "pnl": 7532409.67,
-    "win_rate": 1.0,
-    "markets_traded": 28,
-    "strategy_type": "swing_trader",
-    "best_category": "politics"
+    "score": 99.84,
+    "streak_tier": "hot",
+    "rank": 3,
+    "pnl": { "total": 10412880.51, "realized": 10034112.23, "unrealized": 378768.28 },
+    "stats": { "markets_traded": 4120, "win_rate": 0.6231, "daily_win_rate": 0.5714, "total_volume": 48211004.11 },
+    "sync_status": "synced"
   }
 }
 ```
 
-This profile shows high realized P&L, a high win rate, a strategy label, and a category strength.
+- `pnl.realized` is the number behind the grade. `pnl.total` includes open positions.
+- `streak_tier` is recent form on a separate axis. See [Signal scoring](/concepts/signal-scoring).
+- Every `pnl` and `stats` value is nullable. Do not read `null` as zero.
 
-### C-grade: noisy and small
+## Filter by grade
 
-```json
-{
-  "object": "trader",
-  "data": {
-    "id": "trd_0xc111...",
-    "username": null,
-    "grade": "C",
-    "score": 42.10,
-    "pnl": 318.55,
-    "win_rate": 0.5238,
-    "markets_traded": 21,
-    "strategy_type": null,
-    "best_category": null
-  }
-}
-```
+`min_grade` is an allowlist. `min_grade=A` returns `S` and `A`. `min_grade=B` returns `S`, `A`, and `B`.
 
-This profile is available from the API but not from the leaderboard.
-
-## Use grades in the API
-
-### Example: filter whale trades by grade
-
-Use `min_grade=A` to read S and A trades:
-
-```bash
-curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/whale-trades?min_grade=A&limit=50"
-```
-
-`min_grade` accepts `S`, `A`, `B`. Setting `min_grade=A` returns S **and** A.
-
-### Example: filter the leaderboard by strategy
-
-Use `strategy` to rank one style:
-
-```bash
-curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/leaderboard?strategy=swing_trader"
-```
-
-Some traders make the leaderboard but lack a classifiable strategy. Their `strategy_type` is `null`, so treat the field as nullable when filtering client-side.
-
-### Example: combine grade and category
-
-Use both filters to inspect A-grade-or-better crypto trades. Read `side` from each item.
+| Endpoint | `min_grade` values | Default |
+|---|---|---|
+| [`/whale-trades`](/api-reference/endpoint/get-whale-trades), [`/whale-trades/history`](/api-reference/endpoint/get-whale-trades-history) | `S` to `F` | none |
+| [`/positions`](/api-reference/endpoint/get-positions), [`/large-positions`](/api-reference/endpoint/list-large-positions) | `S` to `F` | none |
+| [`/markets/smart-money-flows`](/api-reference/endpoint/smart-money-flows) | `S` to `F` | `B` |
+| [`/sports-edge-signals`](/api-reference/endpoint/get-sports-edge-signals) | `S`, `A`, `B` only | `B` |
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/whale-trades?min_grade=A&category=crypto&limit=50"
 ```
 
-## A note on null strategies
+The leaderboard has no `min_grade`. It returns `S`, `A`, and `B` traders only.
 
-A missing `strategy_type` means no stable pattern is classified yet. Keep the trader unless your workflow needs a label.
+## Handle a null strategy
+
+A leaderboard entry carries `strategy_type`. It is `null` when no classification exists. Keep the trader unless your workflow needs the label. See [Strategy types](/concepts/strategy-types).
+
+## Related
+
+[Signal scoring](/concepts/signal-scoring) names every score field and the question each one answers.

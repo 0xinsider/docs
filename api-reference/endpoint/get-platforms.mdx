@@ -3,20 +3,20 @@ title: "Get Platforms"
 openapi: "GET /api/v1/platforms"
 ---
 
-List the V1 data surfaces for each provider platform. Each surface is marked supported, partial, or unsupported.
+Get the capability matrix: which V1 surfaces each provider supports. Use it at client startup to hide a feature a provider does not support. No key is needed.
 
-## Use this endpoint when
+## Read the matrix
 
-Use this endpoint during client setup. It tells your app whether a surface supports Polymarket, Kalshi, or both.
-
-This endpoint needs no API key.
+- `platforms.polymarket` and `platforms.kalshi` each carry `grade`, `pnl`, `strategy`, `timeline`, `whale_signal`, `insider_radar`, and `market_snapshot`.
+- Each value is `supported`, `partial`, or `unsupported`.
+- Polymarket is `supported` on every surface today. Kalshi is `partial` on `pnl`, `timeline`, and `market_snapshot`, and `unsupported` on the rest.
+- The matrix is static backend metadata. The endpoint does not call a provider at request time.
+- Read the matrix at startup instead of a hard-coded coverage table.
 
 ```bash
 curl "https://api.0xinsider.com/api/v1/platforms"
 ```
 
-Use the response to hide unsupported features. Do not hard-code platform coverage.
+## Related
 
-## Example: choose a market source
-
-Load the matrix at startup. Enable a feature only when its returned status supports the feature.
+[Platforms](/concepts/platforms) explains what each surface covers. [Get API Discovery](/api-reference/endpoint/get-api-discovery) lists the routes behind them.

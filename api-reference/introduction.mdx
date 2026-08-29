@@ -1,8 +1,10 @@
 ---
 title: "API Reference"
 sidebarTitle: "Overview"
-description: "Shared API rules for URLs, auth, responses, IDs, limits, and trust metadata."
+description: "Shared rules for URLs, auth, envelopes, IDs, rate limits, timeouts, CORS, and trust metadata."
 ---
+
+Every `/api/v1/*` endpoint shares the rules on this page. Read it once before you read an endpoint page.
 
 ## Base URL
 
@@ -12,48 +14,54 @@ https://api.0xinsider.com/api/v1/
 
 ## Authentication
 
-Most data endpoints need a Bearer token. Discovery, OpenAPI, health, and
-platforms are public. Remote MCP also needs a Bearer token:
+Send an API key as a Bearer token:
 
 ```bash
 Authorization: Bearer oxi_sk_live_...
 ```
 
+- `GET /api/v1`, `GET /api/v1/openapi.json`, `GET /api/v1/platforms`, and `GET /api/v1/health` are public.
+- Every other endpoint needs the token and an active Pro subscription.
+- Remote MCP at `/api/v1/mcp` needs the same token.
+
 Create a key at [0xinsider.com/developers](https://0xinsider.com/developers). See [Authentication](/authentication).
 
 ## Response envelope
 
-Single-resource endpoints return one object:
+A single-resource endpoint returns one object:
 
 ```json
 {
   "object": "trader",
   "data": { ... },
-  "meta": { "request_id": "req_550e8400", "cached": false }
+  "meta": { "request_id": "req_example", "cached": false, "cost": 1 }
 }
 ```
 
-List endpoints add cursor fields:
+A list endpoint adds cursor fields:
 
 ```json
 {
   "object": "list",
   "data": [ ... ],
   "has_more": true,
-  "next_cursor": "97.94_0x863...",
-  "meta": { "request_id": "req_550e8400", "cached": false }
+  "next_cursor": "<opaque cursor>",
+  "meta": { "request_id": "req_example", "cached": false, "cost": 1 }
 }
 ```
 
 | Field | Meaning |
 |---|---|
-| `object` | Shape of `data`. A singular type (`trader`, `market`, `health`, ...) or `list`. |
+| `object` | The shape of `data`: a singular type such as `trader` or `usage`, `list`, or `error`. |
 | `data` | The payload: an object or an array. |
-| `meta.request_id` | Give us this when you contact support. |
+| `has_more` | `true` when another page exists. List responses only. |
+| `next_cursor` | Pass it as `cursor` to read the next page. Can be `null`. See [Pagination](/concepts/pagination). |
+| `meta.request_id` | Include it in a support request. |
 | `meta.cached` | `true` when the response came from cache. |
-| `has_more` / `next_cursor` | Present on list responses. See [Pagination](/concepts/pagination). |
+| `meta.cache_age_s` | Cache age in seconds. Omitted when the age is unknown. |
+| `meta.cost` | Advisory request weight. Not a price. |
 
-Errors use the same envelope with `"object": "error"`. See [Errors](/errors).
+An error uses the same envelope with `"object": "error"`. See [Errors](/errors).
 
 ## Prefixed IDs
 
@@ -61,76 +69,84 @@ IDs carry a type prefix. Keep the prefix in logs and agent context.
 
 | Entity | Prefix | Example |
 |---|---|---|
-| Trader | `trd_` | `trd_0xabc123def456` |
-| Market | `mkt_` | `mkt_0x789condition` |
+| Trader | `trd_` | `trd_0x863134d00841b2e200492805a01e1e2f5defaa53` |
+| Market | `mkt_` | `mkt_0x...` |
 | Whale trade | `wt_` | `wt_12345` |
 | Radar flag | `rf_` | `rf_67890` |
-| Request | `req_` | `req_550e8400` |
+| Request | `req_` | `req_example` |
 
-Trader paths accept raw addresses and `trd_...` IDs. Market paths such as `/market/{condition_id}/intel` and `/market/{condition_id}/snapshot` accept raw condition IDs and `mkt_...` IDs. Single whale-trade and radar paths accept raw integer IDs and `wt_...` or `rf_...` IDs.
+- Trader paths accept a raw address, a known username, or a `trd_` ID.
+- `/market/{condition_id}/intel` and `/market/{condition_id}/snapshot` accept a raw `condition_id` or a `mkt_` ID.
+- `POST /markets/intel/batch` accepts raw `condition_id` values only.
+- Single whale-trade and radar-flag paths accept a raw integer ID or the `wt_` or `rf_` ID.
 
 ## Rate limits
 
-The limit is 100 requests per minute per user in a sliding window. Batch endpoints add a 2500-item-unit budget. `GET /api/v1/usage` has its own 100 reads/minute guard.
+- 100 requests per minute per user in a sliding window.
+- Batch routes also reserve 2500 item units per minute, one unit per requested item.
+- `GET /api/v1/usage` has its own guard of 100 reads per minute.
+- `GET /api/v1/health` is limited to 120 requests per minute per IP.
+
+Every authenticated response carries the standard and the legacy spelling:
 
 | Header | Meaning |
 |---|---|
-| `X-RateLimit-Limit` | Maximum requests per window (`100`). |
-| `X-RateLimit-Remaining` | How many you have left in the current window. |
-| `X-RateLimit-Reset` | Unix timestamp (seconds) when the window resets. |
-| `X-Request-Cost` | Item units this single batch call charged. |
-| `X-Batch-RateLimit-Limit` | Max batch item units per minute. |
-| `X-Batch-RateLimit-Remaining` | Batch item units remaining. |
-| `X-Batch-RateLimit-Reset` | Unix timestamp when the batch window resets. |
-| `Retry-After` | Seconds to wait. Only on `429`. |
+| `RateLimit-Limit` / `X-RateLimit-Limit` | Requests allowed per window. |
+| `RateLimit-Remaining` / `X-RateLimit-Remaining` | Requests left in the current window. |
+| `RateLimit-Reset` | Seconds until the window resets. |
+| `X-RateLimit-Reset` | Unix timestamp when the window resets. |
+| `X-Request-Id` | Request identifier. |
+| `X-Request-Cost` | Item units a batch call charged. Batch routes only. |
+| `X-Batch-RateLimit-Limit` / `-Remaining` / `-Reset` | Item budget state. Batch routes only. |
+| `Retry-After` | Seconds to wait. Present on `429`, `503`, and `404 pick_not_released`. |
 
 See [Rate Limits](/rate-limits) for retry code.
 
+## Timeouts
+
+A request gets a 30-second server timeout. A request over the limit returns `408 Request Timeout` with an empty body. Check the status before you parse JSON.
+
 ## Browser CORS
 
-Public REST `/api/v1/*` endpoints, except remote MCP (`/api/v1/mcp`), accept
-requests from third-party browser origins with `Authorization: Bearer ...`.
-Do not send cookies or `credentials: "include"`.
+Public `/api/v1/*` endpoints, except `/api/v1/mcp`, accept requests from any browser origin. Send `Authorization: Bearer ...`. Do not send cookies or `credentials: "include"`.
 
-Remote MCP at `/api/v1/mcp` is also non-credentialed. It validates `Origin`
-against the 0xinsider/localhost allowlist.
+Remote MCP at `/api/v1/mcp` is also non-credentialed. It validates `Origin` against the 0xinsider and localhost allowlist.
 
-Allowed public request headers:
+Allowed request headers:
 
 - `Authorization`
 - `Content-Type`
 - `If-None-Match`
+- `Idempotency-Key`
 - `Mcp-Session-Id`
 
-Browser JavaScript may read these response headers:
+Browser JavaScript can read these response headers:
 
-- `X-RateLimit-Limit`
-- `X-RateLimit-Remaining`
-- `X-RateLimit-Reset`
+- `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`
+- `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
 - `Retry-After`
 - `ETag`
 - `X-Request-Id`
 - `X-Request-Cost`
-- `X-Batch-RateLimit-Limit`
-- `X-Batch-RateLimit-Remaining`
-- `X-Batch-RateLimit-Reset`
+- `X-Batch-RateLimit-Limit`, `X-Batch-RateLimit-Remaining`, `X-Batch-RateLimit-Reset`
 - `Mcp-Session-Id`
 - `X-Mcp-Error-Code`
 
-Credentialed first-party routes such as `/api/keys`, `/api/billing`, and auth
-endpoints remain restricted to configured 0xinsider origins.
+A successful preflight response sets `Access-Control-Max-Age: 86400`. First-party routes such as `/api/keys`, `/api/billing`, and auth endpoints accept only configured 0xinsider origins.
 
 ## Trust metadata
 
 Builder endpoints attach metadata to provider-owned values. Use it to separate provider-backed, cached, partial, stale, and unavailable data.
 
-Per value, four dimensions:
+Each value carries four objects:
 
-- `source`: where it came from (`provider`, `database`, `cache`, `computed`, `client_input`, `unavailable`).
-- `freshness`: how current it is (`fresh`, `refreshing`, `stale`, `not_live`, `unknown`, `unavailable`).
-- `reconciliation`: whether it was cross-checked against the source of truth (`provider_backed`, `db_mirror`, `computed`, `partial`, `not_applicable`, `unavailable`).
-- `completeness`: whether it reflects the full picture (`complete`, `partial`, `not_computed`, `not_applicable`, `unavailable`).
+- `source.kind`: `provider`, `database`, `cache`, `computed`, `client_input`, or `unavailable`. `source.owner` names the provider, table, cache, or service.
+- `freshness.status`: `fresh`, `refreshing`, `stale`, `not_live`, `unknown`, or `unavailable`. `as_of` and `max_age_s` can be `null`.
+- `reconciliation.status`: `provider_backed`, `db_mirror`, `computed`, `partial`, `not_applicable`, or `unavailable`.
+- `completeness.status`: `complete`, `partial`, `not_computed`, `not_applicable`, or `unavailable`.
 
-See [Trust metadata](/concepts/trust-metadata) for the values and `expand=trust`.
+Do not convert an unavailable value to `0`, `[]`, or `{}`. Pass `unavailable` to your consumer. See [Trust metadata](/concepts/trust-metadata) for `expand=trust`.
 
-Do not convert unavailable values to `0`, `[]`, or `{}`. Read the metadata and pass `unavailable` to your consumer.
+## Related
+
+[API discovery](/api-reference/endpoint/get-api-discovery) lists every authenticated route. [Objects](/api-reference/objects) describes the response schemas.

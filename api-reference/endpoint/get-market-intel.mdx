@@ -3,21 +3,33 @@ title: "Get Market Intel"
 openapi: "GET /api/v1/market/{condition_id}/intel"
 ---
 
-Get the smart-money breakdown for one market. The response includes graded buy and sell volume, top positions, and direction.
+Get the sharp-money flow for one market over a lookback window. Use this endpoint after search or explore returns a market ID.
 
-## Use this endpoint when
+## Read the intel
 
-Use this endpoint after search or discovery returns a market ID. It answers which side graded traders favor.
+- `sharp_money.direction` is `YES` or `NO`. It names the side with more graded flow in the window.
+- `sharp_money.net_flow_usd`, `buy_volume_usd`, `sell_volume_usd`, and `whale_trade_count` cover the `timeframe` window only.
+- `sharp_money.top_positions` items carry `address`, `username`, `grade`, `side`, `token_id`, and `size_usd`.
+- `sharp_money.token_id` is the Polymarket CLOB token ID for the direction outcome. It is null for Kalshi and unsynced markets.
+- `smart_money` is a deprecated byte-identical alias of `sharp_money`. Read `sharp_money`.
+- `timeframe` accepts `1h`, `4h`, `24h` (default), and `7d`. An unknown value returns `400`.
+- `meta.cached` and `meta.cache_age_s` describe the response cache: 60 seconds for `1h`, 300 seconds for the other windows.
 
-Pass the raw provider-backed `condition_id` or a `mkt_...` market ID from a V1 response. Known non-market prefixes return `400 bad_request`.
+## Handle the market ID
+
+1. Pass the raw `condition_id` from search or explore, or the `mkt_` market ID from any V1 response.
+2. A `trd_`, `wt_`, or `rf_` prefix returns `400 bad_request` with `error.param="condition_id"`.
+3. An unknown market returns `404 not_found`.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/market/0xabc.../intel"
+  "https://api.0xinsider.com/api/v1/market/0x123.../intel?timeframe=24h"
 ```
 
-Use [Batch Get Market Intel](/api-reference/endpoint/batch-get-market-intel) when you need more than one market.
+## Cache the intel
 
-## Example: explain a market card
+The 200 response carries an `ETag`. Send `If-None-Match` to get `304 Not Modified` with an empty body when nothing changed.
 
-Read `sharp_money.direction`, `net_flow_usd`, and `top_positions`. If a value is unavailable, label it unavailable. Do not replace it with `0`.
+## Related
+
+[Batch Get Market Intel](/api-reference/endpoint/batch-get-market-intel) returns the same shape for up to 25 markets in one request.

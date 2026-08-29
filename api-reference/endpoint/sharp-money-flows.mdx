@@ -3,21 +3,28 @@ title: "Sharp Money Flows"
 openapi: "GET /api/v1/markets/sharp-money-flows"
 ---
 
-Discover markets with concentrated S, A, and B grade whale flow before you know a `condition_id`.
+Rank markets by net flow from S, A, and B grade traders over a timeframe. Use it to find markets before you know a `condition_id`.
 
-## Use this endpoint when
+## Read the flows
 
-Use this endpoint to find markets for a research feed or alert before you open market detail.
-
-Filter by timeframe, category, platform, grade, or direction. Results rank by absolute net flow. The cursor keeps the first page's `as_of` timestamp.
+- `timeframe` is `1h`, `4h`, `24h` (default), or `7d`. `min_grade` defaults to `B`, which includes S, A, and B and excludes unranked traders.
+- `platform` is `polymarket`, `kalshi`, or `all` (default). `direction` keeps only `YES` or `NO` rows after aggregation.
+- `category` ignores case. A bucket name such as `Basketball` matches every provider member that folds into it.
+- `sharp_money.net_flow_usd` is signed: BUY YES and SELL NO count positive, BUY NO and SELL YES count negative. `sharp_money.direction` is the sign.
+- `sharp_money.whale_trade_count`, `buy_volume_usd`, and `sell_volume_usd` describe the ranked trades behind the flow.
+- `smart_money` repeats `sharp_money` byte for byte. It is deprecated; read `sharp_money`.
+- Rows sort by absolute net flow, then `condition_id`. The cursor carries the first page `as_of`, so a new whale trade does not reorder page 2.
+- The endpoint does not grade resolution events and does not detect insider behavior.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/markets/sharp-money-flows?timeframe=24h&min_grade=B&limit=10"
 ```
 
-[`GET /api/v1/markets/smart-money-flows`](/api-reference/endpoint/smart-money-flows) remains as a deprecated byte-identical alias. Use this route for new integrations.
+## Cache the flows
 
-## Example: find 24-hour sharp flow
+The response carries an `ETag`. Send it as `If-None-Match` to get `304 Not Modified` when the ranking is unchanged.
 
-Request `timeframe=24h`, `min_grade=B`, and `limit=10`. Pass a returned market ID to [Get Market Intel](/api-reference/endpoint/get-market-intel).
+## Related
+
+[Get Market Intel](/api-reference/endpoint/get-market-intel) drills into one market. [Smart Money Flows](/api-reference/endpoint/smart-money-flows) is the deprecated alias of this route.

@@ -3,25 +3,28 @@ title: "Get Reports"
 openapi: "GET /api/v1/reports"
 ---
 
-Get a daily, weekly, or monthly report from one route. The response matches the legacy route for the same period.
+Get a daily, weekly, or monthly report snapshot from one route. Use this endpoint when a report picker lets a user change the time range.
 
-## Use this endpoint when
+## Choose the period
 
-Use this endpoint when a report picker lets a user change the time range.
-
-Use one period form for the selected granularity:
-
-- `daily`: a UTC date, `YYYY-MM-DD`.
-- `weekly`: an ISO week `YYYY-WW`, or a `from,to` pair of `YYYY-MM-DD` dates.
-- `monthly`: a calendar month, `YYYY-MM`.
+- `granularity` is `daily`, `weekly`, or `monthly`. Any other value returns `400`.
+- `daily` takes a UTC date, `YYYY-MM-DD`.
+- `weekly` takes an ISO week, `YYYY-WW`, or a `from,to` pair of `YYYY-MM-DD` dates.
+- `monthly` takes a calendar month, `YYYY-MM`.
+- The body matches the single-period route for the same period. Only `meta.request_id` differs.
+- `report.top_whale_trades` holds at most 50 rows for daily, 100 for weekly, and 200 for monthly.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/reports?granularity=daily&period=2026-05-08"
 ```
 
-The caps are daily 50, weekly 100, and monthly 200. The legacy routes stay live. Read trust metadata before you publish a partial or unavailable section.
+## Read the snapshot state
 
-## Example: serve a report picker
+- `snapshot.status` is `final` when the range ended before today. Otherwise it is `rolling` and `snapshot.mutable_until` names the last date.
+- `completeness.status` is `complete`, `partial`, or `empty`. An empty range returns `200` with `empty`, not `404`.
+- `report.total_whale_volume` sums local whale-alert activity. It is not provider lifetime volume.
 
-Map `daily`, `weekly`, or `monthly` to its period form. Send the selected pair to this endpoint.
+## Related
+
+[Get Daily Report Snapshot](/api-reference/endpoint/get-daily-report-snapshot), [Get Weekly Report Snapshot](/api-reference/endpoint/get-weekly-report-snapshot), and [Get Monthly Report Snapshot](/api-reference/endpoint/get-monthly-report-snapshot) are the single-period routes.

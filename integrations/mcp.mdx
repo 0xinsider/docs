@@ -1,27 +1,39 @@
 ---
 title: "Local MCP Server"
-description: "Connect an AI client to read-only 0xinsider tools over stdio."
+description: "Run @0xinsider/mcp over stdio and give an AI client the 31 read-only tools."
 ---
 
-[`@0xinsider/mcp`](https://www.npmjs.com/package/@0xinsider/mcp) is the official local Model Context Protocol server. It exposes REST data as read-only MCP tools.
-
-Works with **Claude Code, Cursor, Codex, Gemini CLI**, and any stdio MCP client.
+[`@0xinsider/mcp`](https://www.npmjs.com/package/@0xinsider/mcp) runs a local Model Context Protocol server over stdio. Use it when Claude Code, Cursor, Codex, Gemini CLI, or another stdio client needs 0xinsider data.
 
 <Note>
-  Need a hosted HTTP endpoint instead of a local subprocess? See [Remote MCP](/api-reference/endpoint/remote-mcp).
+  A hosted agent that cannot run a local process can use [Remote MCP](/api-reference/endpoint/remote-mcp) at `POST /api/v1/mcp` instead. Both transports expose the same 31 tools and share the same rate limits.
 </Note>
 
-## Install in one command
+## Install with init
 
 ```bash
 npx -y @0xinsider/mcp init
 ```
 
-`init` detects installed clients, writes their config, and asks for your API key once.
+- `init` detects Claude Code (`~/.claude/settings.json`), Cursor (`~/.cursor/mcp.json`), and Codex (`~/.codex/config.toml`) and writes their config.
+- For Gemini CLI it prints a config template to paste into `~/.gemini/settings.json`.
+- It reads the API key from the terminal without an echo.
+- For a non-interactive run, set `OXINSIDER_API_KEY` in the environment or pipe the key on stdin.
 
-Prefer to edit configs by hand? The per-client paths and snippets are below.
+<Warning>
+  Do not pass the key as a command-line argument. Shell history records arguments. If an older version wrote the key to recorded terminal output, rotate the key before you use the new config.
+</Warning>
 
-## Manual install per client
+For a stable terminal command, install the package globally:
+
+```bash
+npm install --global @0xinsider/mcp
+0xinsider --help
+```
+
+The package installs `0xinsider` and the alias `0xinsider-mcp`. Both run the same CLI. The commands are `serve` (the default), `init`, and `help`.
+
+## Configure a client by hand
 
 <Tabs>
   <Tab title="Claude Code">
@@ -40,7 +52,7 @@ Prefer to edit configs by hand? The per-client paths and snippets are below.
     ```
   </Tab>
   <Tab title="Cursor">
-    `~/.cursor/mcp.json` (restart Cursor after saving)
+    `~/.cursor/mcp.json`. Restart Cursor after you save.
 
     ```json
     {
@@ -80,78 +92,68 @@ Prefer to edit configs by hand? The per-client paths and snippets are below.
       }
     }
     ```
-
-    Gemini exposes the tools through `/mcp`.
   </Tab>
   <Tab title="Other clients">
-    Any stdio-MCP client works:
+    Any stdio MCP client works. Set the key in the process environment, then start the server:
 
     ```bash
     OXINSIDER_API_KEY=oxi_sk_live_... npx -y @0xinsider/mcp
     ```
-
-    See all options:
-
-    ```bash
-    npx -y @0xinsider/mcp --help
-    ```
   </Tab>
 </Tabs>
 
-## What the server exposes
+## Use the tools
 
-### Tools (read-only)
+The server exposes 31 read-only tools from the same catalog as Remote MCP. It cannot place trades or write data.
 
-| Tool | What it does |
+| Group | Tools |
 |---|---|
-| `get_trader` | Wallet profile: grade, P&L, win rate, strategy, category strengths. |
-| `get_whale_trades` | Recent large trades, filterable by size, category, grade. |
-| `get_leaderboard` | Top-ranked traders (S/A/B) with optional category/strategy filter. |
-| `get_positions` | Current positions across traders or markets. |
-| `get_position_timeline` | Per-market trader fills with running amount and average entry price. |
-| `search_markets` | Keyword search across prediction markets. |
-| `explore_markets` | Browse whale-active markets by category, platform, status. |
-| `get_market_intel` | Smart-money breakdown for a single market. |
-| `get_insider_radar` | Suspicious accumulation and timing patterns. |
+| Traders | `get_trader`, `batch_get_traders`, `get_leaderboard`, `get_trending_wallets`, `get_trader_pnl`, `get_positions`, `get_position_timeline`, `get_position_timeline_by_id`, `get_trader_export_snapshot` |
+| Whale activity | `get_whale_trades`, `get_whale_trade`, `get_whale_trades_history`, `get_event_replay_since` |
+| Markets | `search_markets`, `explore_markets`, `get_market_intel`, `batch_get_market_intel`, `get_market_snapshot`, `get_sharp_money_flows`, `get_smart_money_flows`, `get_large_positions` |
+| Insider radar | `get_insider_radar`, `get_insider_radar_flag` |
+| Reports | `get_report`, `get_daily_report_snapshot`, `get_weekly_report_snapshot`, `get_monthly_report_snapshot` |
+| Webhooks | `list_webhooks`, `get_webhook` |
+| Content and platforms | `search_content`, `get_platforms` |
 
-Every tool advertises `readOnlyHint: true`. The server cannot place trades or write data.
+`get_smart_money_flows` is a deprecated alias of `get_sharp_money_flows`. Webhook create, update, delete, verify, and rotate operations are not tools.
 
-### Resources (auto-attached context)
+## Use the resources and prompts
 
-| URI | What you get |
+The stdio server also serves four resources and three prompts. Remote MCP serves tools only.
+
+| Resource | Content |
 |---|---|
-| `oxinsider://docs/api` | Full API reference, ready for the model to read. |
-| `oxinsider://docs/agents` | Decision tree for agents: when to use which tool. |
-| `oxinsider://data/leaderboard` | Live top 20 traders. |
-| `oxinsider://data/whale-trades` | Live latest 20 whale trades. |
+| `oxinsider://docs/api` | The full API reference. |
+| `oxinsider://docs/agents` | The decision tree for agents: which tool to call when. |
+| `oxinsider://data/leaderboard` | The current top 20 traders. |
+| `oxinsider://data/whale-trades` | The latest 20 whale trades. |
 
-### Prompts (one-shot templates)
-
-| Prompt | Use when |
+| Prompt | Use it for |
 |---|---|
-| `analyze_trader` | You want a full breakdown of a specific wallet. |
-| `market_report` | You want smart-money flow on a market topic. |
-| `trading_signals` | You want a scan for high-conviction signals across markets. |
+| `analyze_trader` | A full breakdown of one wallet. |
+| `market_report` | A smart-money flow report on a market topic. |
+| `trading_signals` | A scan for high-conviction signals across markets. |
 
-## Example prompts
+## Ask a question
 
-After install, ask a task-specific question:
+After install, ask a task-specific question. The client picks the tool.
 
-- "Who are the top prediction-market traders currently?"
-- "What are A-grade or better whales buying in crypto markets today?"
-- "Analyze trader `0x863134d00841b2e200492805a01e1e2f5defaa53`. Is their strategy worth following?"
+- "Who are the top prediction-market traders right now?"
+- "What did A-grade or better whales buy in crypto markets today?"
+- "Analyze trader `swisstony`. Is their strategy worth a follow?"
 - "Are there suspicious accumulation patterns on the Trump election market?"
-- "Show me the position timeline for that whale on the Ethereum market."
+- "Show the position timeline for that whale on the Ethereum market."
 
-The agent selects the tool and calls it.
+## Set environment variables
 
-## Environment variables
-
-| Variable | Required | What it controls |
+| Variable | Required | Meaning |
 |---|---|---|
-| `OXINSIDER_API_KEY` | Yes | Your API key (`oxi_sk_live_...`). |
-| `OXINSIDER_API_URL` | No | Override the base URL (mostly for self-hosted dev). |
+| `OXINSIDER_API_KEY` | Yes | The API key (`oxi_sk_live_...`). |
+| `OXINSIDER_API_URL` | No | The API base URL. Default `https://api.0xinsider.com`. |
 
-<Note>
-  The MCP server uses your API key and shares the 100 req/minute limit with REST calls.
-</Note>
+The server sends the key with every call. Tool calls spend the same 100 requests per minute as REST calls. See [Rate Limits](/rate-limits).
+
+## Related
+
+[Remote MCP](/api-reference/endpoint/remote-mcp) documents the Streamable HTTP transport, the `initialize` handshake, and `Mcp-Session-Id`.

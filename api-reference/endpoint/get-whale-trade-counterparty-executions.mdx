@@ -3,18 +3,28 @@ title: "Page counterparty executions"
 openapi: "GET /api/v1/whale-trades/{id}/counterparties/executions"
 ---
 
-Page the executions behind one whale trade's counterparty snapshot.
+Page the executions behind one whale trade's counterparty snapshot. Use this endpoint when [Get Whale Trade](/api-reference/endpoint/get-whale-trade) returns an `executions_next_cursor`.
 
-## Use this endpoint when
+## Read the page
 
-Use this endpoint after [Get Whale Trade](/api-reference/endpoint/get-whale-trade) returns a counterparty analysis with an `executions_next_cursor`.
+- `snapshot_id` is required. Copy it from `counterparty_analysis.snapshot_id` in the trade detail.
+- `data` has the same `CounterpartyAnalysis` shape as the detail. `executions[]` carries the taker, an inline `makers` page, and `makers_next_cursor`.
+- `executions_next_cursor` is the cursor for the next page. It is null on the last page.
+- `analysis_id` binds every cursor to one snapshot and one execution set.
+- `limit` is 1 to 100 with a default of 100.
 
-1. Read `counterparties.snapshot_id` and `counterparties.executions_next_cursor` from the whale-trade detail.
-2. Request this endpoint with that `snapshot_id` and the cursor. Later pages use `next_cursor` from the previous page.
+## Handle the snapshot
+
+1. Read `error.reason` on a `400`. `cursor_expired` means the snapshot expired or was invalidated.
+2. Request the trade detail again. Restart from its new `snapshot_id`.
+3. A `404` means the `snapshot_id` is unknown or belongs to another trade.
+4. A `503` with `error.reason="read_model_warming"` means the counterparty runtime is unavailable. Retry this route after `Retry-After`.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/whale-trades/wt_123/counterparties/executions?snapshot_id=$SNAPSHOT_ID&limit=50"
 ```
 
-A changed snapshot returns `400` with `error.reason="cursor_expired"`. Request the whale-trade detail again and restart from its new snapshot.
+## Related
+
+[Page maker counterparties](/api-reference/endpoint/get-whale-trade-counterparty-makers) continues one execution from `makers_next_cursor`.

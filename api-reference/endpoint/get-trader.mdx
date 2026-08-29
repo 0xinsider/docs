@@ -3,21 +3,26 @@ title: "Get Trader"
 openapi: "GET /api/v1/trader/{address}"
 ---
 
-Get one trader profile with grade, realized P&L, win rate, strategy, category strengths, and open positions.
+Get one trader profile with grade, P&L, win rate, and optional strategy, category, quant, and trust fields. Use it after a leaderboard row, a flow row, or a whale trade gives you a trader.
 
-## Use this endpoint when
+## Read the profile
 
-Use this endpoint after the leaderboard or whale-trade feed gives you a wallet, username, or trader ID.
-
-The path accepts a raw wallet address, known username, or `trd_`-prefixed trader ID. Add repeated `expand` values for heavier fields.
+- `address` accepts a `0x...` wallet address, a known username, or a `trd_`-prefixed trader ID. All three resolve to the same profile.
+- `grade` is `S` to `F`, or `null` for an ungraded trader. `streak_tier` is a separate axis over the last 7 days.
+- `pnl.total`, `pnl.realized`, and `pnl.unrealized` are USD. `pnl.last_7d` and `pnl.last_30d` are deprecated and always `null`.
+- `sync_status` is `synced`, `unknown`, or `pending`. An unknown trader returns `200` with `sync_status: "unknown"`, not `404`.
+- `expand` adds heavy fields. Repeat it for each value: `strategy`, `categories`, `quant_metrics`, `trust`. `expand[]` is an alias.
+- `quant_metrics` appears only when its computed row is under six hours old. A `null` metric means too little history, never zero.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/trader/0x863134d00841b2e200492805a01e1e2f5defaa53?expand=strategy&expand=categories"
 ```
 
-For several traders, use [Batch Get Traders](/api-reference/endpoint/batch-get-traders).
+## Cache the profile
 
-## Example: enrich a whale alert
+The response carries an `ETag`. Send it as `If-None-Match` to get `304 Not Modified` with an empty body when the profile is unchanged.
 
-Read the trader address from the alert. Request `expand=strategy&expand=categories` when the alert needs those fields.
+## Related
+
+[Batch Get Traders](/api-reference/endpoint/batch-get-traders) returns up to 25 profiles in one request. [Get Trader Context](/api-reference/endpoint/get-trader-context) adds position coverage and a freshness clock.

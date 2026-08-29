@@ -1,70 +1,127 @@
 ---
 title: "Insider scanner"
-description: "Review unusual timing with trader and market context."
+description: "Review suspicious trades with trader and market context."
 ---
 
-Use this recipe to review unusual timing and large positions. The [insider radar](/api-reference/endpoint/get-insider-radar) finds leads; the next calls add context.
+Find trades with unusual timing, size, or wallet age, then add context before you act. A flag is a lead, not proof.
 
-All requests need a Bearer key. See [Authentication](/authentication). Insider radar is Polymarket-only; see [Platforms](/concepts/platforms).
+Every request needs a Pro API key. See [Authentication](/authentication). Insider radar is Polymarket only; see [Platforms](/concepts/platforms).
 
-## 1. Pull the flags
+## 1. Pull suspicious live trades
 
-Each flag has a `suspicion_score` and a `severity` of `flag` or `watch`. `watch` is the higher-conviction tier:
+[`GET /api/v1/whale-trades`](/api-reference/endpoint/get-whale-trades) carries the live suspicion score on each trade.
+
+- `suspicious_only=true` keeps rows with `suspicion_score` of 60 or more.
+- `suspicion_score` is 0 to 100. It is null when no score is stored.
+- `suspicion_track` names the scorer track: `whale`, `fresh_conviction`, or `sliced_position`.
+- `whale` is a large trade backed by a fresh wallet, conviction, or a cluster.
+- `fresh_conviction` is a new wallet with a lopsided contrarian bet below the whale size gate.
+- `sliced_position` is one wallet that splits a large position into many small fills in a short window.
 
 ```python
-import os, requests
+import os
+
+import requests
 
 BASE = "https://api.0xinsider.com/api/v1"
 H = {"Authorization": f"Bearer {os.environ['OXINSIDER_API_KEY']}"}
 
+trades = requests.get(
+    f"{BASE}/whale-trades",
+    params={"suspicious_only": "true", "limit": 50},
+    headers=H,
+    timeout=30,
+).json()
+
+for tr in trades["data"]:
+    who = tr["trader"]["username"] or tr["trader"]["address"][:10]
+    print(
+        tr["suspicion_score"], tr["suspicion_track"], who, tr["side"],
+        tr["outcome"], tr["size_usd"], tr["market"]["title"],
+    )
+```
+
+## 2. Pull the radar flags
+
+[`GET /api/v1/insider-radar`](/api-reference/endpoint/get-insider-radar) lists stored flags with their component scores.
+
+- `severity` is `flag` or `watch`. `flag` is the higher tier.
+- `min_suspicion` is 0 to 100. The list is highest suspicion first.
+- `scores` has `timing`, `edge`, `size`, and `fresh_wallet`. Each is nullable.
+- `evidence` is the structured detection detail.
+- [`GET /api/v1/insider-radar/{id}`](/api-reference/endpoint/get-insider-radar-flag) returns one flag by its `rf_` ID.
+
+```python
 flags = requests.get(
     f"{BASE}/insider-radar",
-    params={"severity": "watch", "min_suspicion": 70, "limit": 50},
+    params={"severity": "flag", "min_suspicion": 70, "limit": 50},
     headers=H,
+    timeout=30,
 ).json()
 
 for f in flags["data"]:
     s = f["scores"]
-    print(f'{f["suspicion_score"]:.0f} {f["trader"]["username"] or f["trader"]["address"][:10]} '
-          f'timing={s["timing"]:.0f} edge={s["edge"]:.0f} size={s["size"]:.0f} fresh={s["fresh_wallet"]:.0f}')
+    who = f["trader"]["username"] or f["trader"]["address"][:10]
+    print(
+        f["id"], f["suspicion_score"], who, f["market"]["title"],
+        "timing", s["timing"], "edge", s["edge"], "size", s["size"], "fresh", s["fresh_wallet"],
+    )
 ```
 
-The `scores` object shows the `timing`, `edge`, `size`, and `fresh_wallet` components.
+## 3. Add context
 
-## 2. Open one flag
+Read the wallet and the market before you act on a lead.
 
-Read one flag and its linked trader and market:
-
-```bash
-curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/insider-radar/flg_..."
-```
-
-## 3. Confirm with context
-
-A flag is a lead, not proof. Confirm it with trader and market reads:
+- [`GET /api/v1/trader/{address}`](/api-reference/endpoint/get-trader) returns `grade`, `stats.markets_traded`, and `sync_status`. An unknown wallet returns `sync_status: "unknown"`, not `404`.
+- [`GET /api/v1/market/{condition_id}/intel`](/api-reference/endpoint/get-market-intel) returns `sharp_money.net_flow_usd` and `sharp_money.direction` for the timeframe.
+- `smart_money` is a deprecated alias of `sharp_money`. Read `sharp_money`.
+- Compare the flagged `side` and `outcome` with `sharp_money.direction`.
 
 ```python
 flag = flags["data"][0]
 addr = flag["trader"]["address"]
 cond = flag["market"]["condition_id"]
 
-trader = requests.get(f"{BASE}/trader/{addr}", headers=H).json()["data"]
-intel = requests.get(f"{BASE}/market/{cond}/intel", headers=H).json()["data"]
+trader = requests.get(f"{BASE}/trader/{addr}", headers=H, timeout=30).json()["data"]
+intel = requests.get(
+    f"{BASE}/market/{cond}/intel", params={"timeframe": "24h"}, headers=H, timeout=30
+).json()["data"]
 
-print("trader grade:", trader["grade"], "| markets traded:", trader["stats"]["markets_traded"])
-print("smart money net flow:", intel["smart_money"]["net_flow_usd"], intel["smart_money"]["direction"])
+print("grade:", trader["grade"], "markets:", trader["stats"]["markets_traded"], trader["sync_status"])
+print(
+    "sharp money:", intel["sharp_money"]["direction"],
+    intel["sharp_money"]["net_flow_usd"], "over", intel["timeframe"],
+)
 ```
 
-A fresh wallet with a high `size` score and the same side as smart money deserves review.
+## 4. Cross-check the position size
 
-## 4. Cross-check size
+[`GET /api/v1/large-positions`](/api-reference/endpoint/list-large-positions) shows the open positions on one market.
 
-Check absolute size with [large positions](/api-reference/endpoint/list-large-positions):
+- `condition_id` scopes the list to one market. `min_size` is in USD.
+- `total_size_usd`, `share_count`, and `avg_entry_price` are nullable.
+- `trader.grade` shows whether a graded wallet holds the same side.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/large-positions?condition_id=0x123...&min_size=25000"
 ```
 
-Use `Position.trader.is_new_wallet` and `wallet_age_days` to cross-check `fresh_wallet`.
+## 5. Get push alerts
+
+Subscribe a webhook to `insider_radar_flag_raised`. It fires the first time a trade's suspicion score crosses the flag threshold.
+
+- The event is Pro only.
+- `data` carries `trade_id`, `wallet`, `trader_id`, `condition_id`, `suspicion_score`, `track`, `side`, `size`, and `price`.
+- `track` uses the same three values as `suspicion_track`.
+
+See [Webhooks](/guides/webhooks) for the setup and the signature check.
+
+## Scope
+
+- The positions board carries `trader.is_new_wallet` and `trader.wallet_age_days`, but has no `condition_id` filter.
+- `is_new_wallet` means the first sighting was within 30 days. It is not the on-chain wallet age.
+
+## Related
+
+[Alert bot](/recipes/alert-bot) posts each new trade to a channel. [Signal scoring](/concepts/signal-scoring) explains `signal_score`.

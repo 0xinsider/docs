@@ -4,65 +4,49 @@ sidebarTitle: "Remote MCP"
 openapi: "POST /api/v1/mcp"
 ---
 
-Use the hosted Streamable HTTP MCP endpoint when your agent cannot run a local `npx` process.
+Call the hosted MCP endpoint over Streamable HTTP when your agent cannot run a local process. Use it from a serverless function, a browser agent, or a hosted automation.
 
-## Use this endpoint when
+## Read the contract
 
-Use this endpoint from a serverless function, browser-based agent, or hosted automation service.
+- Methods: `initialize`, `notifications/initialized`, `ping`, `tools/list`, and `tools/call`. The endpoint has no resources and no prompts.
+- Every tool dispatches to a `/api/v1/*` handler in-process. Auth, rate limits, and payloads match REST. Webhook mutations are not tools.
+- Send `Authorization: Bearer <key>`. `?token=` is a deprecated path for a client that cannot send headers. A URL secret lands in shell history, browser history, and logs.
+- `initialize` returns `protocolVersion: "2025-11-25"`, `capabilities.tools.listChanged: false`, and `serverInfo.name: "0xinsider"`.
+- The server mints `Mcp-Session-Id` on `initialize` and echoes it on every response. Send it on every later request.
+- `notifications/initialized` returns `202` with no body.
+- A rejected request returns a JSON-RPC error and repeats the code in the `X-Mcp-Error-Code` header. Rejections are bad JSON, a `jsonrpc` other than `2.0`, or a rejected `Origin`. Codes: `-32000` origin rejected (`403`), `-32001` unauthorized (`401`), `-32002` tier (`403`), `-32003` rate limited (`429`).
+- When the request carries an `Origin` header, it must match the 0xinsider allowlist or localhost. A request without `Origin`, such as curl or a native client, passes.
 
-Remote MCP exposes 30 read-only V1 data operations below as tools. The tools use the same auth, limits, and payloads as REST. `/usage`, `/health`, and webhook mutations are not tools.
+## Start a session
 
-The endpoint supports `initialize`, `notifications/initialized`, `ping`, `tools/list`, and `tools/call`. It has no resources or prompts.
-
-Current tools:
-
-- `get_leaderboard`
-- `get_trader`
-- `batch_get_traders`
-- `get_whale_trades`
-- `get_whale_trade`
-- `get_whale_trades_history`
-- `get_market_intel`
-- `batch_get_market_intel`
-- `get_smart_money_flows`
-- `get_sharp_money_flows`
-- `get_market_snapshot`
-- `get_insider_radar`
-- `get_insider_radar_flag`
-- `get_positions`
-- `get_position_timeline`
-- `get_position_timeline_by_id`
-- `search_markets`
-- `explore_markets`
-- `get_event_replay_since`
-- `list_webhooks`
-- `get_webhook`
-- `get_daily_report_snapshot`
-- `get_weekly_report_snapshot`
-- `get_monthly_report_snapshot`
-- `get_report`
-- `get_trader_export_snapshot`
-- `get_platforms`
-- `get_large_positions`
-- `get_trending_wallets`
-- `get_trader_pnl`
-
-## Authentication
-
-Prefer the header form:
+1. POST `initialize`. Read `Mcp-Session-Id` from the response headers.
+2. POST `notifications/initialized` with that header. Expect `202`.
+3. POST `tools/list`, then `tools/call` with `params.name` and `params.arguments`.
 
 ```bash
-curl -X POST \
+curl -i -X POST \
   -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' \
-  https://api.0xinsider.com/api/v1/mcp
+  -d '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}' \
+  "https://api.0xinsider.com/api/v1/mcp"
 ```
 
-A `?token=...` query parameter is **legacy**. Use the header form because URL secrets enter histories, proxies, and logs.
+## Read the tool list
 
-For the streaming response, see [Remote MCP Stream](/api-reference/endpoint/remote-mcp-stream).
+The endpoint exposes 31 read-only tools:
 
-## Example: list tools from a hosted agent
+- `get_leaderboard`, `get_trending_wallets`
+- `get_trader`, `batch_get_traders`, `get_trader_pnl`, `get_trader_export_snapshot`
+- `get_positions`, `get_position_timeline`, `get_position_timeline_by_id`, `get_large_positions`
+- `get_whale_trades`, `get_whale_trade`, `get_whale_trades_history`
+- `get_market_intel`, `batch_get_market_intel`, `get_market_snapshot`, `search_markets`, `explore_markets`, `search_content`
+- `get_sharp_money_flows`, `get_smart_money_flows`
+- `get_insider_radar`, `get_insider_radar_flag`
+- `get_event_replay_since`
+- `list_webhooks`, `get_webhook`
+- `get_daily_report_snapshot`, `get_weekly_report_snapshot`, `get_monthly_report_snapshot`, `get_report`
+- `get_platforms`
 
-Send `tools/list` with the Bearer header. Select a tool, then send its JSON-RPC arguments in `tools/call`.
+## Related
+
+[Remote MCP stream](/api-reference/endpoint/remote-mcp-stream) is the optional GET stream. [MCP integration](/integrations/mcp) covers the stdio package and client setup.

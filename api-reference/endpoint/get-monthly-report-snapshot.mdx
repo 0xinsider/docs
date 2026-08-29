@@ -3,19 +3,22 @@ title: "Get Monthly Report Snapshot"
 openapi: "GET /api/v1/reports/monthly"
 ---
 
-Get a monthly recap with leaderboard, category rotation, and large realized P&L changes.
+Get the whale-activity report for one UTC month. Use this endpoint for an end-of-month digest or a monthly research report.
 
-## Use this endpoint when
+## Read the report
 
-Use this endpoint for an end-of-month digest or a monthly research report.
+- `month` is required, in `YYYY-MM`.
+- `source_range.start_date` and `end_date` are the first and last days of the month.
+- `report.top_whale_trades` holds at most 200 rows.
+- `snapshot.status` is `final` for a past month and `rolling` for the current month.
+- `completeness.status` is `complete`, `partial`, or `empty`. A month with no whale rows returns `200` with `empty`.
+- `snapshot.version` never changes for a closed period. A rolling period can get a new version after each refresh. Use it as a cache key.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/reports/monthly?month=2026-05"
 ```
 
-Read trust metadata before you publish a section as complete.
+## Related
 
-## Example: publish a monthly review
-
-Request one `YYYY-MM` period, store the snapshot, and use its period fields as the report label.
+[Get Reports](/api-reference/endpoint/get-reports) returns the same body through one `granularity` selector.

@@ -3,19 +3,24 @@ title: "Search Markets"
 openapi: "GET /api/v1/markets/search"
 ---
 
-Search Polymarket and Kalshi markets by keyword.
+Search Polymarket and Kalshi markets by title keyword. Use this endpoint when you know the topic and need a `condition_id` for another endpoint.
 
-## Use this endpoint when
+## Read the results
 
-Use this endpoint when you know a market topic and need a `condition_id` for another endpoint.
+- `q` is required. It must be 1 to 512 characters before whitespace trim and non-empty after trim.
+- Each item carries `id` (the `mkt_` market ID), `condition_id` (the raw provider ID), `title`, `slug`, `category`, `platform`, and `status`.
+- `status` is `active` or `closed`. The `status` filter accepts `active`, `closed`, or `all` (default).
+- `category` filters by market category.
+- The cursor advances over grouped market results, not raw sub-market rows. `limit` is 1 to 100 with a default of 20.
+- `total` is present only when the read model exposes a count.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/markets/search?q=trump&category=politics&status=active"
+  "https://api.0xinsider.com/api/v1/markets/search?q=bitcoin&status=active&limit=20"
 ```
 
-Pass the returned `condition_id` or `mkt_...` ID to [Market Intel](/api-reference/endpoint/get-market-intel) or [Market Snapshot](/api-reference/endpoint/get-market-snapshot). Use [Explore Markets](/api-reference/endpoint/explore-markets) when the user wants to browse.
+Pass `condition_id` to [Get Market Intel](/api-reference/endpoint/get-market-intel) or [Get Market Snapshot](/api-reference/endpoint/get-market-snapshot). Pass raw `condition_id` values, never `mkt_` IDs, to [Batch Get Market Intel](/api-reference/endpoint/batch-get-market-intel).
 
-## Example: open a politics market
+## Related
 
-Search with `q=trump`, `category=politics`, and `status=active`. Use the returned market ID for the next request.
+[Explore Markets](/api-reference/endpoint/explore-markets) lists whale-active Polymarket markets with facets and sort options.

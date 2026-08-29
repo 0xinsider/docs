@@ -3,25 +3,37 @@ title: "Update Webhook"
 openapi: "PATCH /api/v1/webhooks/{id}"
 ---
 
-Change a webhook URL, event list, or enabled state without creating a new webhook.
+Change the name, URL, event types, or enabled state of a webhook endpoint. Use this endpoint to move a receiver or to resume a disabled endpoint.
 
-## Use this endpoint when
+## Change the fields
 
-Use this endpoint to promote a staging receiver or pause delivery during maintenance.
+- Omit a field to keep its current value.
+- A new `url` sets `status` to `pending_verification` and returns a new `verification.token`. The token expires after 24 hours.
+- `enabled: false` sets `status` to `disabled`.
+- `enabled: true` sets `status` to `active` when the endpoint is verified and the URL did not change.
+- `PATCH` never changes the signing secret.
+
+<Warning>
+While an endpoint is `disabled`, the API queues nothing for it and moves every queued delivery to `dead_letter`. Use [Get Event Replay Since](/api-reference/endpoint/get-event-replay-since) to fill the gap.
+</Warning>
 
 ```bash
 curl -X PATCH \
   -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   -H "Idempotency-Key: webhook-update-2026-06-01" \
   -H "Content-Type: application/json" \
-  -d '{"enabled": false}' \
+  -d '{"enabled": true}' \
   "https://api.0xinsider.com/api/v1/webhooks/42"
 ```
 
-`PATCH` does not change the signing secret. Use [Rotate Webhook Secret](/api-reference/endpoint/rotate-webhook-secret) to change it.
+## Handle the 409
 
-Send `Idempotency-Key` when you retry the same body. A matching retry returns the original response. A different body with that key returns `422`.
+Branch on `error.reason`.
 
-## Example: pause during maintenance
+1. `webhook_delivery_in_progress`: the URL cannot change while one delivery is in flight. Retry after that request completes.
+2. `idempotency_in_progress`: the same request is still in progress. Retry with the same key and body.
+3. A `422` means the key was used with a different body. Send a new key.
 
-Set `enabled` to `false`, run the maintenance, then set it to `true`. Keep the same webhook ID.
+## Related
+
+[Verify Webhook](/api-reference/endpoint/verify-webhook) activates the endpoint after a URL change.

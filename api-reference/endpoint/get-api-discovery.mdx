@@ -3,20 +3,20 @@ title: "Get API Discovery"
 openapi: "GET /api/v1"
 ---
 
-Discover the public V1 API without a key.
+Get the API entry document without a key: the base URL, docs URL, OpenAPI URL, health URL, and the complete authenticated route index. Use it as the first request of an SDK or an agent.
 
-## Use this endpoint when
+## Read the document
 
-Use this endpoint as the first request in an SDK, agent, or health probe.
-
-The response lists the API base URL, docs URL, OpenAPI URL, health URL, and sample data routes.
+- `api_base_url` is the API origin for V1 requests. `health_url` is the unauthenticated health check.
+- `docs_url` is the agent-readable reference. `openapi_url` is the OpenAPI document on the web origin.
+- `authentication` states which routes are public and which need a key.
+- `authenticated_routes` lists every authenticated route as `<METHOD> <path>`. It is the whole surface, not a sample. Copy a path from it instead of a guess.
+- The index is a hand-maintained list, and no automated check compares it with the spec. When they disagree, the document at `openapi_url` wins.
 
 ```bash
 curl "https://api.0xinsider.com/api/v1"
 ```
 
-Use the returned URLs to configure the client. Use the health URL before you send an authenticated request.
+## Related
 
-## Example: configure a new client
-
-Fetch this document once at startup. Read its API and OpenAPI URLs instead of hard-coding them in the client.
+[Get Platforms](/api-reference/endpoint/get-platforms) tells you which surfaces each provider supports. [Health Check](/api-reference/endpoint/health) is the endpoint behind `health_url`.

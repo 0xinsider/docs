@@ -1,106 +1,142 @@
 ---
 title: "TypeScript Client"
-description: "Use the typed TypeScript source client for the 0xinsider API."
+description: "Build the @0xinsider/sdk TypeScript client from source and call the API with typed errors."
 ---
 
-A typed TypeScript client lives in the app repo at `web/src/lib/api-client`. It follows the checked-in OpenAPI spec.
-
-It is **not** on npm. Use the source or copy its patterns.
+`@0xinsider/sdk` is the TypeScript client in the app repository at `sdk/`. Use it when a Node service needs typed calls, typed errors, cursor pagination, the SSE stream, or webhook verification.
 
 <Note>
-  Want a package release? That needs decisions on package name, semver policy, changelog ownership, and npm access. Open an issue if you depend on it.
+  The package is not on npm yet. The name `@0xinsider/sdk` is reserved for the published release. Build it from source today.
 </Note>
 
-## What it handles
+## Build from source
 
-- `Authorization: Bearer` header injection.
-- Path parameter interpolation (`/trader/{address}`, `/market/{condition_id}/intel`).
-- Repeated query parameters like `expand=strategy&expand=categories`. The API also accepts the legacy `expand[]` form.
-- JSON request bodies for batch and webhook endpoints.
-- V1 error envelopes as typed exceptions with the HTTP `status`, parsed `error`, and raw response `body`.
-- Conditional reads: successful response `ETag` headers are copied to `meta.etag`, and `304` responses return a typed `not_modified` envelope instead of attempting to parse an empty body.
+1. Install Node.js 18 or later. The client uses native `fetch`, `ReadableStream`, and `node:crypto`. It has no runtime dependencies.
+2. From the repository root, run:
+   ```bash
+   cd sdk && npm install && npm run build
+   ```
+3. Reference the build from your project with a workspace path or an `npm pack` tarball.
 
-## Example: read a trader and search markets
+## Know what the client handles
+
+- It sets `Authorization: Bearer` on every bearer operation. It throws before the request when no key is set.
+- It interpolates path parameters such as `/trader/{address}`.
+- It sends repeated query parameters such as `expand=strategy&expand=categories`.
+- It sends JSON bodies for batch and webhook operations.
+- It throws an `OxinsiderApiError` subclass on every non-2xx response.
+- It copies a response `ETag` to `meta.etag` and returns a typed `not_modified` result on `304`.
+- Its operation table is drift-tested against the public OpenAPI contract in `test/drift.test.ts`.
+
+## Read a trader and search markets
 
 ```ts
-import { OxinsiderApiClient } from "./api-client";
+import { OxinsiderApiClient } from "@0xinsider/sdk";
 
 const client = new OxinsiderApiClient({
-  baseUrl: "https://api.0xinsider.com",
   apiKey: process.env.OXINSIDER_API_KEY,
+  // baseUrl defaults to https://api.0xinsider.com
 });
 
-// Wallet address or username — both work.
+// A wallet address, a username, or a trd_ ID
 const trader = await client.getTrader("swisstony", {
   query: { expand: ["strategy", "categories"] },
 });
+console.log(trader.data);
 
 const markets = await client.searchMarkets("NBA", {
   query: { limit: 5, status: "active" },
 });
+console.log(markets.data);
+
+// Any operation by id, typed against the contract
+const usage = await client.call("getUsage");
 ```
 
-## Conditional reads
+## Paginate a list
+
+`paginate()` follows `next_cursor` and yields each item. `paginatePages()` yields whole envelopes when you need `meta` or `total`.
 
 ```ts
-import {
-  OxinsiderApiClient,
-  isApiNotModifiedResponse,
-} from "./api-client";
+import { paginate } from "@0xinsider/sdk";
 
-const client = new OxinsiderApiClient({
-  baseUrl: "https://api.0xinsider.com",
-  apiKey: process.env.OXINSIDER_API_KEY,
-});
+for await (const trade of paginate(client, "listWhaleTrades", {
+  query: { min_grade: "S", limit: 100 },
+})) {
+  console.log(trade);
+}
+```
 
-const first = await client.call("listSportsEdgeObservations", {
-  query: { cohort: "wider_holder", category: "Tennis", limit: 20 },
-});
+The loop stops when `has_more` is `false` or `next_cursor` is absent. Pass `maxPages` to cap the fetch count and `signal` to cancel.
+
+## Read conditionally
+
+```ts
+import { OxinsiderApiClient, isApiNotModifiedResponse } from "@0xinsider/sdk";
+
+const first = await client.call("getTrader", { path: { address: "swisstony" } });
 
 if (!isApiNotModifiedResponse(first) && first.meta?.etag) {
-  const next = await client.call("listSportsEdgeObservations", {
-    query: { cohort: "wider_holder", category: "Tennis", limit: 20 },
+  const next = await client.call("getTrader", {
+    path: { address: "swisstony" },
     headers: { "If-None-Match": first.meta.etag },
   });
-
   if (isApiNotModifiedResponse(next)) {
-    console.log("snapshot unchanged");
+    console.log("unchanged");
   }
 }
 ```
 
-The `304` envelope has `object: "not_modified"`, `data: null`, and response-header metadata.
+The `304` result has `object: "not_modified"`, `data: null`, and response-header metadata in `meta`.
 
 ## Handle errors
 
-The client throws typed exceptions. Match on `error.code`:
+Every non-2xx response throws an `OxinsiderApiError` subclass. The client picks the subclass by `error.reason` first, then by `error.code`.
+
+| `error.code` or `error.reason` | Class |
+|---|---|
+| `bad_request` | `BadRequestError` |
+| `invalid_api_key` | `InvalidApiKeyError` |
+| `subscription_required` | `SubscriptionRequiredError` |
+| `forbidden` | `ForbiddenError` |
+| `not_found` | `NotFoundError` |
+| `account_locked` | `AccountLockedError` |
+| `rate_limited` | `RateLimitedError` |
+| `rate_limit_unavailable` | `RateLimitUnavailableError` |
+| `internal_error` | `InternalServerError` |
+| `pick_not_released` | `PickNotReleasedError` |
+| `read_model_warming` | `ReadModelWarmingError` |
+| `cursor_expired` | `CursorExpiredError` |
+| `trader_not_tracked` | `TraderNotTrackedError` |
+| `unknown_endpoint` | `UnknownEndpointError` |
+| `idempotency_in_progress` | `IdempotencyInProgressError` |
+| `webhook_delivery_in_progress` | `WebhookDeliveryInProgressError` |
+
+Every error exposes `status`, `code`, `reason`, `retryAt`, `error`, `meta`, `requestId`, and the raw `body`. `RateLimitedError` and `RateLimitUnavailableError` add `retryAfterSeconds`.
 
 ```ts
-import { OxinsiderApiClient, OxinsiderApiError } from "./api-client";
-
-const client = new OxinsiderApiClient({
-  baseUrl: "https://api.0xinsider.com",
-  apiKey: process.env.OXINSIDER_API_KEY,
-});
+import { OxinsiderApiError, RateLimitedError } from "@0xinsider/sdk";
 
 try {
-  const trader = await client.getTrader("not-a-real-trader");
+  await client.listWhaleTrades({ min_grade: "S" });
 } catch (err) {
-  if (err instanceof OxinsiderApiError) {
-    const code = err.error?.code;
-    if (code === "not_found") {
-      // expected: unknown trader
-    } else if (code === "subscription_required") {
-      throw new Error("Pro subscription required");
-    } else {
-      throw err;
-    }
+  if (err instanceof RateLimitedError) {
+    await new Promise(r => setTimeout(r, (err.retryAfterSeconds ?? 1) * 1000));
+  } else if (err instanceof OxinsiderApiError && err.retryAt) {
+    console.log("retry at", err.retryAt.toISOString());
+  } else if (err instanceof OxinsiderApiError) {
+    console.error(err.status, err.code, err.requestId);
   } else {
     throw err;
   }
 }
 ```
 
-## Keep OpenAPI as the source of truth
+## Stream events and check webhook signatures
 
-The operation table follows [`api-reference/openapi.json`](https://github.com/0xinsider/docs/blob/main/api-reference/openapi.json). Update the spec before you add an operation.
+- `streamFeed(client, options)` consumes `GET /api/v1/stream` with `Last-Event-ID` resume and per-connection filters. See [Stream](/api-reference/endpoint/get-stream).
+- `verifySignature(input)` checks the `x-0xinsider-signature` header against the raw body with a 300-second replay tolerance. `parseWebhookEvent(body)` returns a typed event. See [Webhooks](/guides/webhooks).
+
+## Related
+
+[API Reference](/api-reference/introduction) holds the envelope and header rules the client follows. The public spec is `https://api.0xinsider.com/api/v1/openapi.json`.

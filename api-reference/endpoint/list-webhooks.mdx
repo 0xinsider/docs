@@ -3,28 +3,22 @@ title: "List Webhooks"
 openapi: "GET /api/v1/webhooks"
 ---
 
-List the webhooks registered on your account. Each item includes its URL, events, delivery status, and signature state.
+List the webhook endpoints on your account. Use this endpoint for a settings page or a startup check.
 
-## Use this endpoint when
+## Read the list
 
-Use this endpoint for a webhook settings page or a startup audit.
+- `data` holds `webhook` objects, newest first. Deleted endpoints are omitted.
+- `status` is `pending_verification`, `active`, or `disabled`.
+- `failure_count` counts consecutive failed delivery attempts. One success resets it to 0.
+- `retry_policy.max_attempts` is `8` and `retry_policy.terminal_status` is `dead_letter`.
+- `signing_secret` and `verification` never appear here. They appear only on create, rotate-secret, and a URL change.
+- The list has one page. `has_more` is `false` and `next_cursor` is `null`.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/webhooks"
 ```
 
-## Change a webhook
+## Related
 
-- [Create](/api-reference/endpoint/create-webhook) a webhook.
-- [Get](/api-reference/endpoint/get-webhook) its current state.
-- [Update](/api-reference/endpoint/update-webhook) its URL, events, or enabled state.
-- [Delete](/api-reference/endpoint/delete-webhook) it when you no longer need it.
-- [Verify](/api-reference/endpoint/verify-webhook) it before delivery.
-- [Rotate the secret](/api-reference/endpoint/rotate-webhook-secret) after a leak.
-
-For event types, the signature scheme, and verification code, see the [Webhooks guide](/guides/webhooks).
-
-## Example: audit webhook state
-
-List webhooks after a deployment. Flag returned endpoints with `status=pending_verification`. If delivery failures stop an endpoint, use its saved ID with [Get Webhook](/api-reference/endpoint/get-webhook) to inspect `status`. After deletion, the endpoint is omitted from this list and Get Webhook returns `404` for its ID.
+[Create Webhook](/api-reference/endpoint/create-webhook) adds an endpoint. The [Webhooks guide](/guides/webhooks) covers the signature and the retry schedule.

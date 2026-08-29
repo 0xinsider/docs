@@ -3,19 +3,22 @@ title: "Get Webhook"
 openapi: "GET /api/v1/webhooks/{id}"
 ---
 
-Get one registered webhook. The response includes its URL, events, `status`, and delivery details.
+Get one webhook endpoint by its integer `id`. Use this endpoint to show status on an account page or to check the URL before an update.
 
-## Use this endpoint when
+## Read the webhook
 
-Use this endpoint to show webhook status in an account page or to check a destination before an update.
-
-The signing secret is never returned. Save it when you create or rotate the webhook.
+- `status` is `pending_verification`, `active`, or `disabled`.
+- `verified_at` is `null` until the endpoint passes verification.
+- `verification_token_expires_at` shows when the current token expires.
+- `failure_count` counts consecutive failed delivery attempts. A count of 8 disables the endpoint.
+- `signing_secret` never appears here. Store it on create or rotate-secret.
+- An unknown or deleted `id` returns `404`.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/webhooks/42"
 ```
 
-## Example: check delivery readiness
+## Related
 
-Read the webhook state before you enable a worker. Use [List Webhook Deliveries](/api-reference/endpoint/list-webhook-deliveries) for delivery attempts.
+[List Webhook Deliveries](/api-reference/endpoint/list-webhook-deliveries) shows each delivery attempt for this endpoint.

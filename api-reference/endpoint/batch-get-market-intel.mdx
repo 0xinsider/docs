@@ -3,23 +3,34 @@ title: "Batch Get Market Intel"
 openapi: "POST /api/v1/markets/intel/batch"
 ---
 
-Get market intel for up to 25 markets in one request. Each item matches [Get Market Intel](/api-reference/endpoint/get-market-intel).
+Get market intel for 1 to 25 markets in one request. Use this endpoint when a board already holds several raw condition IDs.
 
-## Use this endpoint when
+## Read the items
 
-Use this endpoint when a dashboard already has several market IDs. It cuts one request per market to one batch request.
+- `data` preserves request order. `index` is the zero-based input position. A duplicate input returns a duplicate row.
+- `status` is `ok` or `error`. An `ok` item carries `data` in the [Get Market Intel](/api-reference/endpoint/get-market-intel) shape. An `error` item carries `error.code`, `error.message`, and `error.param`.
+- The top-level status stays `200` when one item fails.
+- `timeframe` is shared by every item. It accepts `1h`, `4h`, `24h` (default), and `7d`.
+- `meta.total_items`, `successful_items`, and `failed_items` count the result. `meta.request_cost` and `meta.rate_limit` report the batch item budget.
+
+## Handle the request body
+
+1. Send raw provider `condition_id` values only. A `mkt_` ID returns a per-item `bad_request` error.
+2. An unknown raw `condition_id` returns a per-item `not_found` error.
+3. An empty array, more than 25 items, or a bad `timeframe` returns `400` for the whole request. No item runs.
 
 ```bash
-curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
+curl -X POST \
+  -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"condition_ids": ["0xabc...", "0xdef...", "0x123..."]}' \
+  -d '{"condition_ids": ["0x123...", "0x456..."], "timeframe": "24h"}' \
   "https://api.0xinsider.com/api/v1/markets/intel/batch"
 ```
 
-Read `data[i].error` for every item. The top-level status stays `200` when one market fails.
+## Budget the items
 
-Each item costs one batch unit. A 25-market request costs 25 units. See [Rate Limits](/rate-limits).
+Each item costs one batch item unit, reserved before execution. Duplicate and invalid items also cost one unit. The budget is 2500 units per minute per user, next to the 100 requests per minute limit. An over-quota batch returns `429` with `Retry-After` before any item work. See [Rate Limits](/rate-limits).
 
-## Example: refresh a market board
+## Related
 
-Send the `condition_id` values from your board. Render successful items and show an error for each failed item.
+[Get Market Intel](/api-reference/endpoint/get-market-intel) returns one market and accepts a `mkt_` ID.

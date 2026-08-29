@@ -3,19 +3,22 @@ title: "List Webhook Events"
 openapi: "GET /api/v1/webhooks/events"
 ---
 
-List webhook event types, their data shapes, and producer status.
+List every webhook event type with its payload shape and producer status. Use this endpoint before you create or update a subscription.
 
-## Use this endpoint when
+## Read the catalog
 
-Use this endpoint before you create or update a webhook subscription.
+- `id` is the value you list in `event_types`.
+- `payload_shape` describes the `data` object of each delivery.
+- `status` is `active` or `dormant`. A `dormant` type accepts a subscription but sends no delivery yet.
+- `live_sports_updated` is the one `dormant` type. The other six are `active`.
+- `whale_trades_inserted`, `wallet_grade_changed`, `insider_radar_flag_raised`, and `smart_money_flow_detected` deliver only to a key on an active Pro subscription.
+- The catalog is the same for every key. It holds no account data.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/webhooks/events"
 ```
 
-Pro event types appear for every authenticated key. They deliver only for an active Pro subscription. A dormant event can be subscribed to but does not fire now.
+## Related
 
-## Example: build an event picker
-
-Load the catalog, hide dormant events, and show the subscription requirement before a user saves the webhook.
+[Create Webhook](/api-reference/endpoint/create-webhook) takes one or more of these `id` values in `event_types`.

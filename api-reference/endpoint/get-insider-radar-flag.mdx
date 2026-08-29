@@ -3,19 +3,28 @@ title: "Get Insider Radar Flag"
 openapi: "GET /api/v1/insider-radar/{id}"
 ---
 
-Get one Insider Radar flag by ID. Use the raw ID or the `rf_...` ID from a list response.
+Get one Insider Radar flag by ID. Use this endpoint when a user opens one flag from an alert or a review queue.
 
-## Use this endpoint when
+## Read the flag
 
-Use this endpoint when a user opens one radar result from an alert or review queue.
+- The response object is `radar_flag`. Its fields match one item from [Get Insider Radar](/api-reference/endpoint/get-insider-radar).
+- `suspicion_score`, `severity`, `scores`, `evidence`, and `created_at` are the recorded detection facts.
+
+## Handle the flag ID
+
+1. Pass the raw `radar_flags.id` integer or the `rf_` ID from a list response.
+2. A `wt_`, `trd_`, or `mkt_` prefix, or a non-integer value, returns `400 bad_request` with `error.param="id"`.
+3. A well-formed ID with no row returns `404 not_found`.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/insider-radar/rf_123"
 ```
 
-The response is one `radar_flag` envelope. Its item shape matches [Get Insider Radar](/api-reference/endpoint/get-insider-radar).
+## Cache the flag
 
-## Example: open a radar detail view
+The 200 response carries an `ETag`. Send `If-None-Match` to get `304 Not Modified` with an empty body when nothing changed.
 
-Store the `rf_...` ID from the list result. Request this page when the user selects the flag.
+## Related
+
+[Get Insider Radar](/api-reference/endpoint/get-insider-radar) lists flags by suspicion score.

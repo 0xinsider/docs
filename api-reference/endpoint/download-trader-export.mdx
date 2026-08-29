@@ -3,20 +3,29 @@ title: "Download Trader Export"
 openapi: "GET /api/v1/trader/{address}/export/download"
 ---
 
-Download a completed trader export. The API redirects to a short-lived presigned URL and returns gzip data in the selected format.
+Download a finished export. The API redirects to a short-lived presigned URL. Use it after [Get Trader Export Status](/api-reference/endpoint/get-trader-export-status) returns `ready`.
 
-## Use this endpoint when
+## Read the redirect
 
-Use this endpoint after [Trader Export Status](/api-reference/endpoint/get-trader-export-status) returns `ready`.
+- `job_id` is required. The response is `302` with `Location` set to the presigned URL.
+- The presigned URL is valid for one hour. Do not store it.
+- The file is gzip-compressed with `Content-Encoding: gzip` and the format's `Content-Type`: `application/json`, `application/x-ndjson`, or `text/csv`.
+- `Content-Disposition` names the file `<address>-dataset.<extension>`.
+
+## Fetch the file
+
+1. Poll the status route until `status` is `ready`. A download before `ready` returns `400` with `param: "job_id"`.
+2. Send the request with `curl -L --compressed`. `-L` follows the redirect; `--compressed` inflates the gzip body.
+3. Without `--compressed`, `curl -L -o file` writes raw gzip bytes. Run `gunzip` on that file.
+4. A `job_id` under another trader or another account returns `404`.
+5. When the presigned URL expires, request this route again for a new one.
 
 ```bash
 curl -L --compressed -o trader-export.ndjson \
   -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/trader/0xabc.../export/download?job_id=123"
+  "https://api.0xinsider.com/api/v1/trader/swisstony/export/download?job_id=123"
 ```
 
-The endpoint returns `400` until the job is `ready`.
+## Related
 
-## Example: save an offline research file
-
-Poll the job, then follow the redirect and save the file for analysis. Do not store the presigned URL for later use.
+[Submit Trader Export](/api-reference/endpoint/submit-trader-export) starts the job and documents the three formats.

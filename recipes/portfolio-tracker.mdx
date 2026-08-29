@@ -1,81 +1,119 @@
 ---
 title: "Portfolio tracker"
-description: "Track selected wallets, P&L, and current positions."
+description: "Track selected wallets, their P&L, and their open positions."
 ---
 
-Use this recipe for a dashboard of selected wallets, their P&L, and their current positions.
+Build a dashboard for a set of wallets with P&L per wallet and their open positions. Use it for a follow list or a client book.
 
-All requests need a Bearer key. See [Authentication](/authentication).
+Every request needs a Pro API key. See [Authentication](/authentication).
 
-## 1. Aggregate P&L in one call
+## 1. Read P&L in one call
 
-[`POST /api/v1/traders/batch`](/api-reference/endpoint/batch-get-traders) accepts up to 25 wallet addresses or `trd_` IDs:
+[`POST /api/v1/traders/batch`](/api-reference/endpoint/batch-get-traders) reads up to 25 wallets in one call.
+
+- `traders` takes 1 to 25 wallet addresses, usernames, or `trd_` IDs. Split a larger set.
+- Each item has its own `status`. One bad wallet does not fail the batch.
+- `pnl.total`, `pnl.realized`, and `pnl.unrealized` are nullable.
+- `pnl.last_7d` and `pnl.last_30d` are deprecated and always null.
+- An untracked wallet returns `sync_status: "unknown"`. Poll it again later.
+- `expand: ["trust"]` adds `trust.total_pnl.freshness`. See [Trust metadata](/concepts/trust-metadata).
 
 ```python
-import os, requests
+import os
+
+import requests
 
 BASE = "https://api.0xinsider.com/api/v1"
 H = {"Authorization": f"Bearer {os.environ['OXINSIDER_API_KEY']}"}
 
-wallets = ["0x204f...", "0x863...", "0x885..."]
+wallets = [
+    "0x204f72f35326db932158cba6adff0b9a1da95e14",
+    "0x863...",
+    "0x885...",
+]
 batch = requests.post(
     f"{BASE}/traders/batch",
     json={"traders": wallets, "expand": ["trust"]},
     headers=H,
+    timeout=30,
 ).json()
 
 book = []
 for item in batch["data"]:
-    if item["status"] == "ok":
-        t = item["data"]
-        book.append({
-            "wallet": t["address"],
-            "name": t["username"],
-            "grade": t["grade"],
-            "total_pnl": t["pnl"]["total"],
-            "unrealized": t["pnl"]["unrealized"],
-            "last_30d": t["pnl"]["last_30d"],
-        })
-    else:
+    if item["status"] != "ok":
         print("failed:", item["input"], item["error"]["message"])
+        continue
+    t = item["data"]
+    freshness = t["trust"]["total_pnl"]["freshness"]
+    book.append({
+        "wallet": t["address"],
+        "name": t["username"],
+        "grade": t["grade"],
+        "total_pnl": t["pnl"]["total"],
+        "realized": t["pnl"]["realized"],
+        "unrealized": t["pnl"]["unrealized"],
+        "sync_status": t["sync_status"],
+        "pnl_freshness": freshness["status"],
+        "pnl_as_of": freshness["as_of"],
+    })
 
-print("portfolio P&L:", sum(b["total_pnl"] for b in book))
+print("book P&L:", sum(b["total_pnl"] or 0 for b in book))
 ```
 
-Each item has its own `status`. One bad wallet does not fail the batch. Split larger sets into groups of 25.
+## 2. Scan open positions
 
-## 2. Current positions
+There is no per-wallet positions endpoint. [`GET /api/v1/positions`](/api-reference/endpoint/get-positions) is a global board. Scan it and keep your wallets.
 
-There is no per-trader positions endpoint. The [positions board](/api-reference/endpoint/get-positions) is global, so scan it and keep your wallets:
+- `min_size` is the minimum current value in USD. The default is 100.
+- `min_grade=A` returns S and A wallets. Set it when every wallet in the book is graded.
+- The board holds binary Polymarket positions. Multi-outcome sports positions are not on it.
+- `side` is `YES` or `NO`. `market.outcome_label` is the provider label for that side.
+- `current_value_usd` is never null. `avg_price`, `cash_pnl`, and `realized_pnl` are nullable.
+- `freshness` is `fresh`, `refreshing`, `stale`, or `unknown`. It is derived from `last_reconciled_at`.
+- Page with `cursor` until `has_more` is `false`. See [Pagination](/concepts/pagination).
 
 ```python
-wallet_set = set(w.lower() for w in wallets)
+wallet_set = {w.lower() for w in wallets}
+
 
 def positions_for_book(min_size=1000):
-    held, cursor = [], None
+    held = []
+    cursor = None
     while True:
         params = {"limit": 100, "min_size": min_size}
         if cursor:
             params["cursor"] = cursor
-        page = requests.get(f"{BASE}/positions", params=params, headers=H).json()
+        page = requests.get(f"{BASE}/positions", params=params, headers=H, timeout=30).json()
         held += [p for p in page["data"] if p["trader"]["address"].lower() in wallet_set]
-        if not page.get("has_more"):
+        if not page["has_more"]:
             return held
         cursor = page["next_cursor"]
 
+
 for p in positions_for_book():
-    print(p["trader"]["address"][:10], p["market"]["outcome_label"],
-          p["side"], f'${p["current_value_usd"]:,.0f}', p["freshness"])
+    print(
+        p["trader"]["address"][:10], p["market"]["title"], p["side"],
+        p["market"]["outcome_label"], p["shares"], p["avg_price"],
+        f'${p["current_value_usd"]:,.0f}', p["cash_pnl"], p["freshness"], p["last_reconciled_at"],
+    )
 ```
 
-Check each position's `freshness` ([trust](/concepts/trust-metadata)). `fresh` is within the freshness window; `stale` is past it.
+Show `freshness` next to each value. Treat a `stale` position as a hint, not a fact.
 
-## 3. Refresh cadence
+## 3. Set the refresh cadence
 
-- Pull batch P&L every few minutes.
-- Scan the cursor-paginated positions board at the dashboard cadence.
-- Use [position timeline](/api-reference/endpoint/get-trader-position-timeline) for one wallet and market.
+- The request budget is 100 requests per minute per key.
+- The batch route also has an item budget of 2500 item units per minute. A batch of 25 wallets costs one request and 25 item units.
+- The positions board returns an `ETag`. Send `If-None-Match` to get `304 Not Modified` when nothing changed.
+- Raise `min_size` to cut the number of pages for a large book.
+- Use [`GET /api/v1/trader/{address}/position-timeline`](/api-reference/endpoint/get-trader-position-timeline) for the fills behind one position.
 
-## Scope and limits
+## Scope
 
-The positions list is a board intersection, not a wallet-specific query. For a large set, raise `min_size` to reduce work. Batch P&L is aggregate data for the selected wallets.
+- The positions board is a global intersection, not a per-wallet query.
+- Batch P&L is per wallet. The book total in step 1 is a sum in your code.
+- Kalshi positions are not on the board yet. `platform` stays in the shape for that change.
+
+## Related
+
+[Backtest a trader](/recipes/backtest) reads the daily P&L series for one wallet. [Trust metadata](/concepts/trust-metadata) defines `freshness`.

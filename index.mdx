@@ -1,51 +1,45 @@
 ---
 title: "0xinsider API"
 sidebarTitle: "Introduction"
-description: "Trader, market, and whale-trade data for agents, bots, and research tools."
+description: "Trader grades, whale trades, sharp-money flow, and positions from Polymarket and Kalshi for bots, agents, and research tools."
 ---
 
-Use 0xinsider to read trader grades, whale trades, smart-money flow, positions, and insider signals from Polymarket and Kalshi.
+Read trader grades, whale trades, sharp-money flow, positions, and insider-radar flags from Polymarket and Kalshi. Use the API when a bot, an agent, or a research tool needs graded trader context instead of raw market prints.
 
-Choose one of three interfaces:
+## Choose an interface
 
-- **REST API**: `https://api.0xinsider.com/api/v1/` for bots, dashboards, and research code.
-- **Local MCP server**: [`@0xinsider/mcp`](https://www.npmjs.com/package/@0xinsider/mcp) on stdio for Claude Code, Cursor, Codex, Gemini CLI.
-- **Remote MCP**: Streamable HTTP for agents that cannot run a local process.
+- **REST API** at `https://api.0xinsider.com/api/v1/` for bots, dashboards, and research code.
+- **Local MCP server** [`@0xinsider/mcp`](https://www.npmjs.com/package/@0xinsider/mcp) over stdio for Claude Code, Cursor, Codex, and Gemini CLI.
+- **Remote MCP** at `POST /api/v1/mcp` over Streamable HTTP for agents that cannot run a local process.
 
-One [Insider subscription](https://0xinsider.com/pricing) covers all three.
+All three use the same API key, the same read-only tool catalog, and the same rate limits. One [Pro subscription](https://0xinsider.com/pricing) covers all three.
 
 <Tip>
-  Use [llms-full.txt](https://docs.0xinsider.com/llms-full.txt) when an AI agent needs the full API reference in one file.
+  Give an AI agent [llms-full.txt](https://0xinsider.com/llms-full.txt) or [agents.md](https://0xinsider.com/agents.md). Each file holds the full API contract.
 </Tip>
 
-## What it solves
+## Know what the API adds
 
-The source platforms provide raw market activity. 0xinsider adds trader grades, signal scores, smart-money flow, position timelines, and pattern detection.
+Polymarket and Kalshi expose raw trades. 0xinsider adds trader grades, signal scores, sharp-money flow, position timelines, and pattern detection. Kalshi public prints stay anonymous, so grade and P&L fields can be null for them.
 
 Use the API to answer questions such as:
 
 - Which traders have a strong record in a category?
 - Did a high-grade trader buy this market recently?
 - Is a trader building a position before resolution?
-- Which markets receive smart-money flow?
+- Which markets receive sharp-money flow?
 - What fill price appears in a trader's timeline?
 
-## What you can build
+## Make a first request
 
-- **Trading bots** that react to high-grade whale trades.
-- **AI agents** that explain trader records and positions.
-- **Research tools** that compare traders and historical fills.
-- **Dashboards** that show market flow and open positions.
-- **Webhooks** that notify your system about new events.
-
-## A real response
-
-Example: read the first leaderboard item.
+Read the top leaderboard entry:
 
 ```bash
-curl -H "Authorization: Bearer oxi_sk_live_..." \
+curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/leaderboard?limit=1"
 ```
+
+The response uses the list envelope. Field names match the `LeaderboardEntry` schema. The values below are illustrative.
 
 ```json
 {
@@ -53,23 +47,33 @@ curl -H "Authorization: Bearer oxi_sk_live_..." \
   "data": [
     {
       "id": "trd_0x863134d00841b2e200492805a01e1e2f5defaa53",
+      "address": "0x863134d00841b2e200492805a01e1e2f5defaa53",
       "username": "RepTrump",
       "grade": "S",
+      "streak_tier": "hot",
       "score": 97.94,
       "pnl": 7532409.67,
       "win_rate": 1.0,
       "markets_traded": 28,
-      "strategy_type": "swing_trader"
+      "strategy_type": "swing_trader",
+      "platform": "polymarket"
     }
   ],
   "has_more": true,
-  "next_cursor": "97.94_0x863134d00841b2e200492805a01e1e2f5defaa53"
+  "next_cursor": "<opaque cursor>",
+  "meta": {
+    "request_id": "req_example",
+    "cached": false,
+    "cost": 1,
+    "ranking_generation": 42,
+    "ranking_as_of": "2026-08-25T05:00:00Z"
+  }
 }
 ```
 
-The example shows the response shape. Query the endpoint again when you need current data.
+Pass `next_cursor` as `cursor` to read the next page. See [Pagination](/concepts/pagination).
 
-## Endpoints
+## Pick an endpoint
 
 <CardGroup cols={2}>
   <Card title="Get Trader" icon="user" href="/api-reference/endpoint/get-trader">
@@ -78,61 +82,67 @@ The example shows the response shape. Query the endpoint again when you need cur
   <Card title="Batch Get Traders" icon="layer-group" href="/api-reference/endpoint/batch-get-traders">
     Read up to 25 trader profiles in one call.
   </Card>
+  <Card title="Leaderboard" icon="ranking-star" href="/api-reference/endpoint/get-leaderboard">
+    List top traders by score. Filter by category or strategy.
+  </Card>
+  <Card title="Pick of the Day" icon="star" href="/api-reference/endpoint/get-pick-of-the-day">
+    Read the ranked picks for the current product day.
+  </Card>
   <Card title="Whale Trades" icon="whale" href="/api-reference/endpoint/get-whale-trades">
-    Read recent large trades. Filter by grade, category, or side.
+    Read recent large trades. Filter by grade, category, or size.
   </Card>
   <Card title="Whale Trades History" icon="clock-rotate-left" href="/api-reference/endpoint/get-whale-trades-history">
-    Read historical whale trades for backtests and reports.
+    Replay historical whale trades for backtests and reports.
   </Card>
   <Card title="Positions" icon="chart-line" href="/api-reference/endpoint/get-positions">
-    Read current positions with freshness metadata.
+    Read current positions with a freshness state on each row.
   </Card>
   <Card title="Position Timeline" icon="timeline" href="/api-reference/endpoint/get-position-timeline">
-    Read fill order, running amount, and average entry price.
+    Read a trader's fills on one market with running amount and average entry price.
   </Card>
   <Card title="Explore Markets" icon="compass" href="/api-reference/endpoint/explore-markets">
     Browse whale-active markets by category, platform, or status.
   </Card>
+  <Card title="Search Markets" icon="magnifying-glass" href="/api-reference/endpoint/search-markets">
+    Search markets by keyword, status, and category.
+  </Card>
   <Card title="Market Intel" icon="chart-mixed" href="/api-reference/endpoint/get-market-intel">
-    Read smart-money flow and top positions for one market.
+    Read sharp-money flow, direction, and top positions for one market.
   </Card>
   <Card title="Market Snapshot" icon="camera" href="/api-reference/endpoint/get-market-snapshot">
-    Read one market snapshot with trust metadata.
-  </Card>
-  <Card title="Leaderboard" icon="ranking-star" href="/api-reference/endpoint/get-leaderboard">
-    List top traders by composite score.
-  </Card>
-  <Card title="Search Markets" icon="magnifying-glass" href="/api-reference/endpoint/search-markets">
-    Search markets by keyword and filters.
+    Read outcomes, liquidity, sports context, and freshness for one market.
   </Card>
   <Card title="Insider Radar" icon="radar" href="/api-reference/endpoint/get-insider-radar">
-    Find unusual timing and pre-resolution accumulation.
+    Read flags for pre-resolution accumulation and coordinated wallets.
+  </Card>
+  <Card title="Stream" icon="tower-broadcast" href="/api-reference/endpoint/get-stream">
+    Receive live feed events over SSE with `Last-Event-ID` resume.
   </Card>
   <Card title="Event Replay" icon="rotate-right" href="/api-reference/endpoint/get-event-replay-since">
-    Replay feed events after a disconnect.
+    Replay public feed events after a disconnect.
   </Card>
   <Card title="Webhooks" icon="webhook" href="/api-reference/endpoint/list-webhooks">
-    Push supported events to your HTTPS endpoint.
+    Receive signed events at your HTTPS endpoint.
   </Card>
   <Card title="Report Snapshots" icon="file-chart-column" href="/api-reference/endpoint/get-daily-report-snapshot">
-    Read daily, weekly, or monthly reports.
+    Read daily, weekly, or monthly whale-activity reports.
   </Card>
   <Card title="Remote MCP" icon="robot" href="/api-reference/endpoint/remote-mcp">
-    Connect hosted agents over Streamable HTTP.
+    Connect a hosted agent over Streamable HTTP.
   </Card>
 </CardGroup>
 
-## Where to go next
+## Go next
 
 <CardGroup cols={2}>
   <Card title="Quickstart" icon="rocket" href="/quickstart">
-    Generate a key and make a first request.
+    Create a key and make a first request.
   </Card>
   <Card title="Local MCP Server" icon="terminal" href="/integrations/mcp">
     Connect a local AI client over stdio.
   </Card>
   <Card title="TypeScript Client" icon="code" href="/integrations/typescript-client">
-    Use typed calls, errors, and `expand` parameters.
+    Build the typed client from source.
   </Card>
   <Card title="Trader Grades" icon="medal" href="/concepts/grades">
     Learn what each trader grade means.

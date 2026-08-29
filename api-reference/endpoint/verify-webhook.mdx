@@ -3,11 +3,13 @@ title: "Verify Webhook"
 openapi: "POST /api/v1/webhooks/{id}/verify"
 ---
 
-Activate a webhook with its `verification_token`. A new endpoint stays in `pending_verification` until this call succeeds. The token expires 24 hours after creation.
+Activate a webhook endpoint with its one-time `verification_token`. Call this endpoint after [Create Webhook](/api-reference/endpoint/create-webhook) or after a URL change.
 
-## Use this endpoint when
+## Verify the endpoint
 
-Use this endpoint after [Create Webhook](/api-reference/endpoint/create-webhook) and before you wait for events.
+- The token comes from `verification.token` on create or on a URL change. It expires after 24 hours.
+- Success sets `status` to `active`, sets `verified_at`, and resets `failure_count` to 0.
+- The call sends no test delivery to your endpoint.
 
 ```bash
 curl -X POST \
@@ -17,10 +19,14 @@ curl -X POST \
   "https://api.0xinsider.com/api/v1/webhooks/42/verify"
 ```
 
-On success, the endpoint becomes `active` and delivery starts. This call does not send a test delivery. The webhook `id` is the integer from create.
+## Handle the 400
 
-For the signature scheme and copy-pasteable verification code, see the [Webhooks guide](/guides/webhooks).
+An invalid or expired token returns `400` with `error.param="verification_token"`.
 
-## Example: activate a new receiver
+1. Delete the endpoint with [Delete Webhook](/api-reference/endpoint/delete-webhook).
+2. Create it again to get a new token and a new signing secret.
+3. Send the new token within 24 hours.
 
-Read the token from the create response, send it from your setup job, and then wait for a real event delivery.
+## Related
+
+The [Webhooks guide](/guides/webhooks) shows how to check the signature on each delivery.

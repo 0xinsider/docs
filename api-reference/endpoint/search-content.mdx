@@ -3,15 +3,23 @@ title: "Search editorial content"
 openapi: "GET /api/v1/content/search"
 ---
 
-Search 0xinsider learn, glossary, comparison, research, and strategy content by keyword. Each item carries its canonical URL.
+Search 0xinsider learn, glossary, comparison, research, and strategy content by keyword. Use this endpoint to link a term in your product to the 0xinsider article for that term.
 
-## Use this endpoint when
+## Read the results
 
-Use this endpoint to link a term or a topic from your own product to the matching 0xinsider article.
+- `q` is required. It must be 1 to 256 characters before whitespace trim and non-empty after trim.
+- `limit` is 1 to 50 with a default of 10.
+- Each item carries `content_id`, `kind`, `slug`, `title`, `excerpt`, and `url`. `url` is the canonical first-party link.
+- `kind` is `learn`, `glossary`, `comparison`, `research`, or `strategy`.
+- The result is one bounded page. `has_more` is `false`, and `next_cursor` and `total` are absent.
+- Ranking scores are not exposed. Keep the returned order.
+- The 200 response has no `ETag` and no response cache.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/content/search?q=closing%20line%20value&limit=5"
 ```
 
-Ranking scores are not exposed. Show the items in the returned order.
+## Related
+
+[Search Markets](/api-reference/endpoint/search-markets) searches market titles instead of articles.
