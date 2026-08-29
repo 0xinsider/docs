@@ -3,26 +3,28 @@ title: "List Large Positions"
 openapi: "GET /api/v1/large-positions"
 ---
 
-List the largest current positions held by graded traders. Results sort by value and use cursor pagination. This scanner covers Polymarket only.
+List the largest open positions held by graded traders, largest value first. Use it for a market board or a risk review.
 
-## Use this endpoint when
+## Read the positions
 
-Use this endpoint to find large positions for a market board or risk review.
-
-Useful filters:
-
-- `min_size=25000`: floor on position value in USD.
-- `min_grade=A`: minimum trader grade.
-- `category=crypto`: provider-backed market category.
-- `condition_id=...`: scope to one market. Accepts the raw provider `condition_id` or the `mkt_`-prefixed market id.
+- `min_size` is a USD floor. `min_grade` is an allowlist: `B` matches S, A, and B. `condition_id` accepts the raw provider value or the `mkt_`-prefixed market id.
+- `category` is one CSV record of exact category values and ignores case. `NBA,WNBA` is valid. Quote a value that contains a comma.
+- The scanner covers Polymarket only. A Kalshi or unknown `condition_id` returns an empty list, never fabricated rows.
+- `total_size_usd` is the provider current value of the leg. `position_unrealized_pnl` is the provider per-position unrealized P&L.
+- `event_leg_count` is the number of legs from the same event collapsed into the row. `event_total_value_usd` sums them and equals `total_size_usd` when the count is 1.
+- `trader.pnl` is lifetime realized P&L. `current_price` is the latest provider mark.
+- An API key gets the full list. The teaser cap of the product UI does not apply.
+- `limit` is 1 to 100, default 20. `next_cursor` is absent on the last page.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/large-positions?min_grade=A&min_size=25000&limit=50"
 ```
 
-An authenticated key gets the full list. Pass `next_cursor` as `cursor` on the next request. See [Pagination](/concepts/pagination).
+## Cache the list
 
-## Example: find large A-grade crypto positions
+The response carries an `ETag`. Send it as `If-None-Match` to get `304 Not Modified` when the list is unchanged.
 
-Request `min_grade=A`, `min_size=25000`, and `category=crypto`. Use `condition_id` to narrow the result to one market.
+## Related
+
+[Get Positions](/api-reference/endpoint/get-positions) is the full positions feed with a `side` filter and freshness per row.

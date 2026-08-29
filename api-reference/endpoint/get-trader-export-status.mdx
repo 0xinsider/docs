@@ -3,19 +3,28 @@ title: "Get Trader Export Status"
 openapi: "GET /api/v1/trader/{address}/export/status"
 ---
 
-Get the state of one trader export: `queued`, `running`, `ready`, or `failed`.
+Get the state of one export job. Use it after [Submit Trader Export](/api-reference/endpoint/submit-trader-export) and before you download the file.
 
-## Use this endpoint when
+## Read the state
 
-Use this endpoint after [Submit Trader Export](/api-reference/endpoint/submit-trader-export) and before you download the file.
+- `job_id` is required. It comes from the submit response.
+- `status` is `queued`, `running`, `ready`, or `failed`. `processed_trades` and `total_trades` show progress.
+- `file_size` is set when the file is ready. `error` is set when the job failed.
+- The job is scoped to your account and to the trader in the path. A `job_id` under another trader or another account returns `404`.
+- `address` accepts a `0x...` wallet address, a username, or a `trd_`-prefixed trader ID. A `trd_` id finds a job submitted under the wallet.
+
+## Poll the job
+
+1. Wait between reads. Each read counts against the request limit.
+2. Stop on `ready` or `failed`.
+3. On `failed`, read `error`, then submit a new job.
+4. Do not call the download route while the job is `queued` or `running`. It returns `400`.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/trader/0xabc.../export/status?job_id=123"
+  "https://api.0xinsider.com/api/v1/trader/swisstony/export/status?job_id=123"
 ```
 
-When the state is `ready`, call [Download Trader Export](/api-reference/endpoint/download-trader-export).
+## Related
 
-## Example: poll an export job
-
-Poll with a delay between requests. Stop on `ready` or `failed`; do not download while the state is `queued` or `running`.
+[Download Trader Export](/api-reference/endpoint/download-trader-export) redirects to the file once `status` is `ready`.

@@ -1,89 +1,84 @@
 ---
 title: "Quant Metrics"
-description: "Read trader skill, copyability, risk, and performance metrics."
+description: "Read smart_score, copy_score, and the seven component metrics behind them."
 ---
 
-`quant_metrics` contains curated risk and performance metrics for one trader. It includes `smart_score`, `copy_score`, and their component values.
+`quant_metrics` is a fixed object of nine risk and performance numbers for one trader. Request it when `grade` is not enough and you must compare skill or copyability.
 
-The response has exactly nine fields. Each value is a number or `null`.
+## Request the object
 
-## How to get it
-
-`quant_metrics` is an [expanded field](/concepts/expand). It is omitted from trader responses unless you ask for it:
+`quant_metrics` is an [expanded field](/concepts/expand). It appears on [`GET /api/v1/trader/{address}`](/api-reference/endpoint/get-trader) and [`POST /api/v1/traders/batch`](/api-reference/endpoint/batch-get-traders).
 
 ```bash
-# Single trader
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/trader/0x204f...?expand=quant_metrics"
+  "https://api.0xinsider.com/api/v1/trader/swisstony?expand=quant_metrics"
+```
 
-# Many traders at once
+```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   -X POST "https://api.0xinsider.com/api/v1/traders/batch" \
   -H "Content-Type: application/json" \
-  -d '{"traders": ["0x204f...", "swisstony"], "expand": ["quant_metrics"]}'
+  -d '{"traders": ["swisstony", "0x204f72f35326db932158cba6adff0b9a1da95e14"], "expand": ["quant_metrics"]}'
 ```
 
-It appears on [`GET /api/v1/trader/{address}`](/api-reference/endpoint/get-trader) and [`POST /api/v1/traders/batch`](/api-reference/endpoint/batch-get-traders). If metrics are present, all nine keys are present.
+- The object is present only when a computed row under six hours old exists.
+- A row six hours old or older is omitted. Treat an absent object as not computed.
+- When the object is present, all nine keys are present. Each value is a number or `null`.
+- `null` means insufficient trade history. Do not convert it to `0`.
 
-## The two headline scores
+## Read the two headline scores
 
-Both scores range from 0 to 100. Higher is better.
+Both scores run from 0 to 100. Higher is better.
 
-- `smart_score` measures **skill**: how good is this trader, on a risk-adjusted basis, relative to everyone else?
-- `copy_score` measures **copyability**: how safely could you follow this trader, after discounting traits that make a strategy hard to replicate?
-
-`smart_score` combines percentiles and absolute measures:
+- `smart_score` measures skill against every other trader, risk-adjusted.
+- `copy_score` measures how safe the trader is to follow.
 
 ```
 smart_score = clamp(0, 100,
-    30 * sharpe_percentile_fraction
-  + 20 * profit_factor_percentile_fraction
-  + 20 * edge_consistency_percentile_fraction
+    30 * sharpe_percentile / 100
+  + 20 * pf_percentile / 100
+  + 20 * consistency_percentile / 100
   + 10 * min(1, return_on_capital / 2)
   + 10 * equity_smoothness
   + 10 * (1 - min(1, asset_concentration)))
 ```
 
-`copy_score` starts from the same base and subtracts penalties:
+`copy_score` starts from the same base and subtracts penalties, then clamps to 0 to 100:
 
-| Penalty | When it applies |
+| Penalty | Condition |
 |---|---|
-| -20 | Fewer than 50 markets traded (thin track record) |
+| -20 | Fewer than 50 markets traded |
 | -15 | Positions are highly concentrated |
-| -15 | Position sizing exceeds about 2x Kelly (over-betting) |
-| -10 | Worst single-trade loss exceeds 30% |
+| -15 | Position size exceeds about 2x Kelly |
+| -10 | Worst single-trade loss exceeds 30 percent |
 | -10 | Edge is inconsistent |
 
-A trader can have a high `smart_score` and a lower `copy_score`. Use `copy_score` to choose traders to follow. Use `smart_score` to compare skill.
+A trader can have a high `smart_score` and a lower `copy_score`. Compare skill with `smart_score`. Choose traders to follow with `copy_score`.
 
-## The component metrics
+## Read the component metrics
 
-These fields are absolute values, not ranks.
-
-| Field | Meaning |
-|---|---|
-| `sharpe_30d` | Sharpe ratio over the trailing 30 days (risk-adjusted return; higher is better). Magnitude can be large for small samples. |
-| `sharpe_7d` | Sharpe ratio over the trailing 7 days. |
-| `profit_factor` | Gross profit divided by gross loss; greater than 1 is profitable. Capped at 1000 when there are effectively no losses. |
-| `edge_consistency` | Stability of the trader's edge over time, 0-1 (higher is more consistent). |
-
-## The percentile ranks
-
-These fields place the trader against the population on a 0-100 scale.
+These values are absolute, not ranks.
 
 | Field | Meaning |
 |---|---|
-| `sharpe_percentile` | Percentile rank of the trader's Sharpe ratio versus all traders. |
-| `pf_percentile` | Percentile rank of profit factor versus all traders. |
-| `consistency_percentile` | Percentile rank of edge consistency versus all traders. |
+| `sharpe_30d` | Sharpe ratio over the last 30 days. Higher is better. A small sample can produce a large magnitude. |
+| `sharpe_7d` | Sharpe ratio over the last 7 days. |
+| `profit_factor` | Gross profit divided by gross loss. Above 1 is profitable. Capped at 1000 when losses are near zero. |
+| `edge_consistency` | Stability of the edge over time, 0 to 1. Higher is more consistent. |
 
-## Reading the values
+## Read the percentile ranks
 
-- **`null` means not computed.** Do not convert it to `0`.
-- **Values refresh on a schedule.** A percentile can change as the population changes.
-- **Scores and components differ.** Scores and percentiles use 0-100. Sharpe is unbounded. Profit factor is capped at 1000.
+These values place the trader against all traders, 0 to 100.
 
-## Full response shape
+| Field | Meaning |
+|---|---|
+| `sharpe_percentile` | Percentile of the Sharpe ratio |
+| `pf_percentile` | Percentile of the profit factor |
+| `consistency_percentile` | Percentile of edge consistency |
+
+A percentile moves when the population moves, even if the trader does not trade.
+
+## Read the response
 
 ```json
 {
@@ -109,7 +104,6 @@ These fields place the trader against the population on a 0-100 scale.
 
 ## Related
 
-- [Signal scoring](/concepts/signal-scoring) names every score the API exposes and which to reach for.
-- [Grades](/concepts/grades) explains the headline `S`-`F` grade, the long-run quality verdict that sits above these metrics.
-- [Expanding responses](/concepts/expand) covers the `expand` parameter and the other expandable fields.
-- [Trust metadata](/concepts/trust-metadata) exposes per-field provenance, including for `quant_metrics`.
+- [Signal scoring](/concepts/signal-scoring) names every score the API exposes.
+- [Grades](/concepts/grades) explains the `S` to `F` letter above these metrics.
+- [Trust metadata](/concepts/trust-metadata) reports the provenance of `quant_metrics` with `expand=trust`.

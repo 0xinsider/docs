@@ -1,81 +1,157 @@
 ---
 title: "Alert bot"
-description: "Alert on large trades with webhooks or polling."
+description: "Alert on large trades with a webhook, a cursor feed, or an SSE stream."
 ---
 
-Use this recipe to alert on large trades. Choose webhook push for a public server or polling for a script behind NAT.
+Build a bot that posts an alert when a large trade lands. Use it for a Slack channel, a Discord channel, or a pager.
 
-All requests need a Bearer key. See [Authentication](/authentication).
+Every request needs a Pro API key. See [Authentication](/authentication).
 
-## Option A: webhook push
+## 1. Choose a delivery method
 
-Subscribe to `whale_trades_inserted` and verify the endpoint. Then fetch the new trades and filter them:
+| | Webhook push | Cursor feed | SSE stream |
+|---|---|---|---|
+| Public HTTPS URL | Required | Not required | Not required |
+| Latency | Delivery on ingest | Poll interval | Live frame |
+| After downtime | Up to 8 delivery attempts, then `dead_letter` | Replay from the stored cursor | Replay from `Last-Event-ID` inside the retained window |
+| Filters | None on the event | None on the event | `event`, `condition_id`, and `min_grade` at connect time |
+
+- Use the webhook for a public server.
+- Use the cursor feed for a script, a notebook, or a private network. The cursor is durable, so no event is lost.
+- Use the SSE stream for a long-lived process that wants each frame at once.
+
+No delivery method filters whale trades by market, size, or grade. Apply those filters after the fetch in step 3.
+
+## 2. Subscribe to the event
+
+### Webhook
+
+Create a destination with `event_types: ["whale_trades_inserted"]`, then verify it. See [Webhooks](/guides/webhooks) for the setup and the signature check.
+
+Each delivery body carries `id`, `type`, `created_at`, and `data.count`. The body names no trade. Fetch the trades after receipt.
 
 ```python
-# Inside your verified webhook handler, after signature check:
-def handle_event(event):
-    if event["type"] != "whale_trades_inserted":
-        return
-    feed = requests.get(
-        f"{BASE}/whale-trades",
-        params={"min_grade": "A", "min_size": 25000, "limit": 50},
-        headers=H,
-    ).json()
-    for tr in feed["data"]:
-        post_alert(tr)
-```
+import os
 
-Webhook events identify an ingest batch. They do not filter by market, size, or grade. Apply those filters after the fetch.
-
-## Option B: polling
-
-No public URL is required. Persist the replay cursor across restarts:
-
-```python
-import os, time, requests
+import requests
 
 BASE = "https://api.0xinsider.com/api/v1"
 H = {"Authorization": f"Bearer {os.environ['OXINSIDER_API_KEY']}"}
 
-cursor = load_cursor()  # persist this between runs
+
+def handle_event(event):
+    # Call this after the signature check passed.
+    if event["type"] != "whale_trades_inserted":
+        return
+    post_new_trades(limit=min(event["data"]["count"], 100))
+```
+
+Return a `2xx` status within 15 seconds. The server makes up to 8 delivery attempts. The wait between attempts starts at 60 seconds and doubles, up to 1 hour. After the eighth failure the delivery moves to `dead_letter`.
+
+### Cursor feed
+
+[`GET /api/v1/events/feed/since`](/api-reference/endpoint/get-event-replay-since) returns one event per whale trade. Store `next_cursor` after every page.
+
+- `type` is `whale_trades_inserted`.
+- `payload.whale_alert_id` is the raw trade ID. [`GET /api/v1/whale-trades/{id}`](/api-reference/endpoint/get-whale-trade) accepts it.
+- `has_more` is `true` while more events wait. Page again at once.
+- The cursor is backed by the database. `meta.retention.cursor_expired` is always `false`.
+
+```python
+import time
+
+CURSOR_FILE = "cursor.txt"
+
+
+def load_cursor():
+    try:
+        return open(CURSOR_FILE).read().strip() or None
+    except FileNotFoundError:
+        return None
+
+
+def save_cursor(cursor):
+    with open(CURSOR_FILE, "w") as f:
+        f.write(cursor)
+
+
+cursor = load_cursor()
 
 while True:
     params = {"limit": 100}
     if cursor:
         params["cursor"] = cursor
-    resp = requests.get(f"{BASE}/events/feed/since", params=params, headers=H).json()
-
-    for ev in resp["data"]:
-        if ev["type"] == "whale_trades_inserted":
-            check_new_trades()
-    if resp.get("next_cursor"):
-        cursor = resp["next_cursor"]
-        save_cursor(cursor)
-    if not resp.get("has_more"):
+    replay = requests.get(
+        f"{BASE}/events/feed/since", params=params, headers=H, timeout=30
+    ).json()
+    inserted = [ev for ev in replay["data"] if ev["type"] == "whale_trades_inserted"]
+    if inserted:
+        post_new_trades(limit=min(len(inserted), 100))
+    cursor = replay["next_cursor"]
+    save_cursor(cursor)
+    if not replay["has_more"]:
         time.sleep(15)
 ```
 
-You can also poll [`GET /api/v1/whale-trades`](/api-reference/endpoint/get-whale-trades) with filters or open the [SSE stream](/api-reference/endpoint/get-stream).
+### SSE stream
 
-## Post the alert
+[`GET /api/v1/stream`](/api-reference/endpoint/get-stream) pushes the live feed. Pass `event=WhaleTradesInserted` to keep only whale-trade frames.
+
+```bash
+curl -N -H "Authorization: Bearer $OXINSIDER_API_KEY" \
+  "https://api.0xinsider.com/api/v1/stream?event=WhaleTradesInserted"
+```
+
+- Each frame carries `id: <seq>` and a JSON `data` line with `seq`, `published_at`, `type`, and `count`.
+- Send `Last-Event-ID` on reconnect. The server replays the missed frames in order.
+- An `event: resync` frame means the missed window is gone. Run step 3 once, then keep the stream open.
+- Do not set `condition_id` on this stream. Whale-trade frames carry no `condition_id`, so that filter drops them.
+- Each API key holds a small number of open streams. A `429` means the slots are full.
+
+## 3. Fetch and filter
+
+Read [`GET /api/v1/whale-trades`](/api-reference/endpoint/get-whale-trades) after each event.
+
+- `min_grade=A` returns S and A wallets. `min_size` is in USD.
+- The list is newest first. Deduplicate on `id`. Persist the seen IDs; this sample keeps them in memory.
+- `trader.grade` and `trader.username` are nullable.
+
+```python
+seen = set()
+
+
+def post_new_trades(limit=50):
+    page = requests.get(
+        f"{BASE}/whale-trades",
+        params={"min_grade": "A", "min_size": 25000, "limit": limit},
+        headers=H,
+        timeout=30,
+    ).json()
+    for tr in page["data"]:
+        if tr["id"] in seen:
+            continue
+        seen.add(tr["id"])
+        post_alert(tr)
+```
+
+## 4. Post the alert
+
+- `side` is `BUY` or `SELL`. `outcome` is the traded outcome label and is null on a multi-outcome market.
+- `price` is 0.0 to 1.0.
+- `signal_score` is 0.0 to 1.0 and can change later. `recorded_signal_score` is fixed at insert.
 
 ```python
 def post_alert(tr):
+    who = tr["trader"]["username"] or tr["trader"]["address"][:10]
+    grade = tr["trader"]["grade"] or "ungraded"
     msg = (
-        f'{tr["trader"]["grade"]}-grade {tr["trader"]["username"] or "wallet"} '
-        f'{tr["side"]} ${tr["size_usd"]:,.0f} @ {tr["price"]} '
-        f'on {tr["market"]["title"]} (signal {tr["signal_score"]:.0f})'
+        f'{grade} {who} {tr["side"]} {tr["outcome"] or ""} '
+        f'${tr["size_usd"]:,.0f} @ {tr["price"]:.2f} '
+        f'on {tr["market"]["title"]} (signal {tr["signal_score"]:.2f})'
     )
-    requests.post(os.environ["SLACK_WEBHOOK_URL"], json={"text": msg})
+    requests.post(os.environ["SLACK_WEBHOOK_URL"], json={"text": msg}, timeout=30)
 ```
 
-## Choose a delivery method
+## Related
 
-| | Webhook push | Polling |
-|---|---|---|
-| Public HTTPS URL | Required | Not required |
-| Latency | Lowest | Poll interval |
-| Missed events on downtime | Retried up to 8 times | Caught up via cursor |
-| Filtering | After receipt | Query params (whale-trades) |
-
-Use webhooks for low latency with a public server. Use the cursor feed for scripts, notebooks, and private networks.
+[Copy-trade signals](/recipes/copy-trade) matches the same feed against a follow list. [Insider scanner](/recipes/insider-scanner) filters the feed on `suspicion_score`.

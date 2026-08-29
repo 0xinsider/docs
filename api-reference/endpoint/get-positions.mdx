@@ -4,19 +4,26 @@ sidebarTitle: "Positions"
 openapi: "GET /api/v1/positions"
 ---
 
-List current positions for traders or markets. Each row includes the trader, market, value, side, and trust metadata.
+List current positions from the wallet positions mirror, largest value first. Use it for a positions board across traders and markets.
 
-## Use this endpoint when
+## Read the positions
 
-Use this endpoint for a global positions board. Filter by size, category, grade, or side.
+- `min_size` is a USD floor, default 100. `category` is an exact match. `min_grade` is an allowlist: `A` matches S and A. `side` is `yes` or `no`. Every filter runs in SQL.
+- `side` on a row is `YES` or `NO`. Non-binary positions are not on V1. `market.outcome_label` is the provider label and can differ from `side`.
+- `current_value_usd` is never `null`; pre-reconcile rows are excluded. `cash_pnl` and `realized_pnl` are provider values and nullable.
+- `freshness` is `fresh`, `refreshing`, `stale`, or `unknown`, derived from `last_reconciled_at`.
+- `trader.is_new_wallet` is `true` when 0xinsider first saw the wallet within 30 days. `wallet_age_days` uses that first-seen date, not on-chain age.
+- `platform` is `polymarket` today. Rows sort by `current_value_usd`, highest first, then by wallet, `condition_id`, and outcome index. `limit` is 1 to 100.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/positions?min_size=25000&min_grade=A&side=yes&limit=50"
 ```
 
-Use [Position Timeline](/api-reference/endpoint/get-position-timeline) for fill history. Treat an `unavailable` value as missing. Do not change it to `0`. See [Trust metadata](/api-reference/introduction#trust-metadata).
+## Cache the feed
 
-## Example: show large positions
+The response carries an `ETag`. Send it as `If-None-Match` to get `304 Not Modified` when the page is unchanged.
 
-Request large A-grade YES positions. Read the trust fields and label partial data before you show it as current.
+## Related
+
+[Get Position Timeline](/api-reference/endpoint/get-position-timeline) shows the fills behind one row. See [Trust metadata](/concepts/trust-metadata) for the `freshness` values.

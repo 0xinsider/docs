@@ -3,19 +3,34 @@ title: "Get Event Replay Since"
 openapi: "GET /api/v1/events/feed/since"
 ---
 
-Replay feed events after the last event that your worker processed.
+Replay durable `whale_trades_inserted` events after a saved cursor. Use this endpoint after a worker restart, a stream disconnect, or a webhook outage.
 
-## Use this endpoint when
+## Read the window
 
-Use this endpoint after a worker restart or stream disconnect. Load the saved cursor and pass it on the first recovery request. Omit `cursor` only for initial bootstrap.
+- `data[].type` is always `whale_trades_inserted`. Other event types have no durable replay.
+- `data[].payload` holds `count`, `whale_alert_id`, `condition_id`, `trader_id`, and `platform`.
+- Events are ordered by `sequence`, the `whale_alerts.id` value, from low to high.
+- Without `cursor`, the response holds the newest `limit` events and `has_more` is `false`.
+- With `cursor`, the response holds events strictly after it. `limit` accepts 1 to 100 and defaults to 50.
+- `next_cursor` is always present. On an empty page it equals the request cursor.
+- `meta.completeness.status` is `complete` or `caught_up`. `meta.retention.cursor_expired` is always `false`.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/events/feed/since?cursor=$REPLAY_CURSOR&limit=100"
 ```
 
-Save `next_cursor` after each page. Pass it as `cursor` on the next request. Process events idempotently. Use [Webhooks](/api-reference/endpoint/list-webhooks) for push delivery.
+## Walk the cursor
 
-## Example: recover after a deploy
+1. Store `next_cursor` in durable storage after each page.
+2. Pass it as `cursor` on the next request.
+3. Repeat while `has_more` is `true`.
+4. Process each event once. A restart can replay a page you already saw.
 
-Read the last event checkpoint from durable storage, request events after it, process them idempotently, and save the new checkpoint.
+## Handle the 400
+
+A malformed cursor returns `400` with `error.param="cursor"`. Use only a `next_cursor` value from a prior response. Do not build a cursor by hand.
+
+## Related
+
+[Get Stream](/api-reference/endpoint/get-stream) pushes the same events live. The [Webhooks guide](/guides/webhooks) covers replay after a webhook outage.

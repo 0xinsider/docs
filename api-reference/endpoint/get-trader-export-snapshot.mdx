@@ -3,19 +3,22 @@ title: "Get Trader Export Snapshot"
 openapi: "GET /api/v1/trader/{address}/export"
 ---
 
-Get one export snapshot for a trader. It includes the profile, positions, recent trades, and category breakdown.
+Get export metadata for one trader: date coverage, completeness, volume reconciliation, a row estimate, and the export policy. Use it before you submit an export job. This GET returns metadata only, never the dataset.
 
-## Use this endpoint when
+## Read the snapshot
 
-Use this endpoint for offline analysis or one agent request that needs several trader datasets.
+- `address` accepts a `0x...` wallet address, a username, or a `trd_`-prefixed trader ID. A bare integer id is not accepted. An unknown trader returns `404`.
+- `completeness.status` is `complete`, `partial`, or `empty`. `completeness.reason` explains it. `completeness.sync_coverage` is synced local markets divided by provider `markets_traded`.
+- `source_range.first_pnl_date` and `last_pnl_date` bound the local P&L days. `latest_trade_at` is the latest synced activity.
+- `reconciliation.provider_lifetime_volume` is the provider figure. `exported_activity_volume` is the local daily P&L figure. They are different units; do not subtract one from the other.
+- `counts.estimated_trade_rows` is an O(1) estimate from the sync cursor. `estimated_size_mb` sizes the file.
+- `large_export_policy.v1_async` lists `submit_route`, `status_route`, `download_route`, `formats`, `status_values`, and `retention`.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/trader/0x863134d00841b2e200492805a01e1e2f5defaa53/export"
+  "https://api.0xinsider.com/api/v1/trader/swisstony/export"
 ```
 
-Each section carries trust metadata. Read it before you label a value live or complete.
+## Related
 
-## Example: prepare an offline brief
-
-Save the response with its freshness metadata. Give the snapshot date to the analyst or agent with the data.
+[Submit Trader Export](/api-reference/endpoint/submit-trader-export) is the POST on the same path that queues the dataset.

@@ -3,19 +3,35 @@ title: "Get Whale Trades History"
 openapi: "GET /api/v1/whale-trades/history"
 ---
 
-Get whale trades for a fixed time range. Use it for backtests, reports, or cache recovery.
+Replay stored whale trades for a market, a trader, a category, a platform, or a time window. Use this endpoint for backtests, reports, and cache recovery.
 
-## Use this endpoint when
+## Read the replay
 
-Use [Get Whale Trades](/api-reference/endpoint/get-whale-trades) for new activity. Use this endpoint when the start and end times matter.
+- Each item matches the [Get Whale Trades](/api-reference/endpoint/get-whale-trades) shape.
+- The order is `traded_at`, newest first, then `id`, highest first. Every filter runs in SQL before `LIMIT`.
+- `meta.source.kind` is `local_replay` and `meta.source.table` is `whale_alerts`. `provider_fetch_at_request_time` is `false`.
+- `meta.completeness.status` is `best_effort`. `meta.completeness.reason` explains that coverage varies by market and window.
+- This is a replay of stored rows, not a live feed.
+
+## Filter the window
+
+- `from` is an inclusive RFC3339 lower bound on `traded_at`. `to` is an exclusive upper bound.
+- `to` must be after `from` when both are present. Otherwise the response is `400` with `error.param="to"`.
+- `condition_id` is an exact raw provider ID. An unknown market returns an empty list, not an error.
+- `trader` is a wallet address, a timestamp-suffixed wallet alias, or a username. An unknown trader returns an empty list.
+- `platform` accepts `polymarket`, `kalshi`, or `all`. `all` equals an omitted filter.
+- `category`, `min_grade`, `suspicious_only`, `min_size`, and `limit` work as on the list route.
+- `cursor` carries a `wth_` prefix. URL-encode it when you replay it.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/whale-trades/history?from=2026-04-01T00:00:00Z&to=2026-04-30T23:59:59Z&min_grade=A&limit=100"
+  "https://api.0xinsider.com/api/v1/whale-trades/history?from=2026-04-01T00:00:00Z&to=2026-05-01T00:00:00Z&min_grade=A&limit=100"
 ```
 
-Read trust metadata to distinguish provider-backed, reconciled, and partial ranges. See [Trust metadata](/api-reference/introduction#trust-metadata).
+## Cache the replay
 
-## Example: replay one month
+The 200 response carries an `ETag`. Send `If-None-Match` to get `304 Not Modified` with an empty body when nothing changed.
 
-Store the `from` and `to` values with the result. Use the same filters when you repeat the backtest.
+## Related
+
+[Get Whale Trades](/api-reference/endpoint/get-whale-trades) returns the newest trades for a live feed.

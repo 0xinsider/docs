@@ -3,21 +3,29 @@ title: "Submit Trader Export"
 openapi: "POST /api/v1/trader/{address}/export"
 ---
 
-Queue a full trader export. Choose `json`, `ndjson`, or `csv`; JSON is the default.
+Queue an export of a trader's full dataset as JSON, NDJSON, or CSV. Use it when an offline job needs more data than one response carries.
 
-## Use this endpoint when
+## Read the job
 
-Use this endpoint when an offline job needs more data than one JSON response should carry.
+- `format` is `json` (default), `ndjson`, or `csv`. `json` is the full envelope. `ndjson` is the envelope on line 1, then one trade per line. `csv` is flat trade rows only.
+- `address` accepts a `0x...` wallet address, a username, or a `trd_`-prefixed trader ID. A bare integer id is not accepted.
+- `status` is `queued`, `running`, `ready`, or `failed`. `format` echoes the request.
+- `total_trades`, `processed_trades`, `file_size`, and `error` are `null` until the worker sets them.
+- `202` means a new job was queued. `200` means an in-flight or ready job for the same trader and format was reused.
+- Quotas are a per-user daily cap and a per-address hourly cap, keyed on the API key owner. An extra key does not widen the quota.
+
+## Run the export flow
+
+1. Store `job_id` from the response.
+2. Poll [Get Trader Export Status](/api-reference/endpoint/get-trader-export-status) until `status` is `ready` or `failed`.
+3. On `ready`, call [Download Trader Export](/api-reference/endpoint/download-trader-export).
+4. On `429`, read `Retry-After` and submit again after that many seconds. The cap did not queue a job.
 
 ```bash
 curl -X POST -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/trader/0xabc.../export?format=ndjson"
+  "https://api.0xinsider.com/api/v1/trader/swisstony/export?format=ndjson"
 ```
 
-The response contains a job ID. Poll [Trader Export Status](/api-reference/endpoint/get-trader-export-status), then call [Download Trader Export](/api-reference/endpoint/download-trader-export) when the job is `ready`.
+## Related
 
-Quotas apply per API-key owner and trader address.
-
-## Example: queue an NDJSON export
-
-Store the job ID in a worker record. Retry status reads with a delay until the job reaches `ready` or `failed`.
+[Get Trader Export Snapshot](/api-reference/endpoint/get-trader-export-snapshot) shows coverage and row estimates before you submit.

@@ -3,21 +3,32 @@ title: "Get Leaderboard"
 openapi: "GET /api/v1/leaderboard"
 ---
 
-List top traders by composite score. The response includes S, A, and B grades. See [Trader Grades](/concepts/grades).
+List ranked traders with grades S, A, and B, sorted by score. Use it to build a follow list before you request full profiles.
 
-## Use this endpoint when
+## Read the ranking
 
-Use this endpoint to build a follow list or compare traders before you request full profiles.
+- Each row has `id`, `address`, `username`, `grade`, `score`, `streak_tier`, `pnl`, `realized_pnl`, `volume`, `markets_traded`, `win_rate`, `strategy_type`, `platform`, and `last_active`.
+- `realized_pnl` is banked P&L and matches the grade. `pnl` includes unrealized open positions and stays for back-compat.
+- `strategy_type` is nullable. `strategy` filters on one of `accumulator`, `algo_trader`, `arbitrageur`, `directional`, `event_driven`, `market_maker`, `momentum`, `scalper`, `speculator`, `swing_trader`. Any other value returns `400`.
+- `category` matches canonical buckets. Political variants fold into `Politics`, and mapped buckets ignore case. Passthrough categories such as `Crypto` and `NBA` are case-sensitive.
+- `meta.ranking_generation` and `meta.ranking_as_of` identify the committed ranking behind the page.
+- `limit` is 1 to 100, default 20. `next_cursor` is an opaque `lbv1_` cursor bound to the generation and the filters.
 
-Filter by category or strategy. Treat `strategy_type` as nullable.
+## Handle cursor_expired
+
+1. A `400` with `error.reason: "cursor_expired"` means the ranking generation or the filters changed since the cursor was issued.
+2. Discard the rows you hold.
+3. Request page one again without `cursor`, then walk forward with the new `next_cursor`.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/leaderboard?limit=20&category=crypto"
+  "https://api.0xinsider.com/api/v1/leaderboard?category=Crypto&limit=20"
 ```
 
-The response uses cursor pagination. Pass `next_cursor` as `cursor` on the next request. See [Pagination](/concepts/pagination).
+## Cache the ranking
 
-## Example: choose five crypto traders
+The response carries an `ETag` that includes the ranking generation. Send it as `If-None-Match` to get `304 Not Modified` until a new generation commits.
 
-Request `category=crypto&limit=5`. Pass the returned trader IDs to [Batch Get Traders](/api-reference/endpoint/batch-get-traders) for more fields.
+## Related
+
+[List Trending Wallets](/api-reference/endpoint/list-trending-wallets) ranks by recent P&L instead of the all-time grade. See [Trader Grades](/concepts/grades) and [Pagination](/concepts/pagination).

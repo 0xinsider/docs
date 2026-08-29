@@ -3,21 +3,33 @@ title: "List Trending Wallets"
 openapi: "GET /api/v1/leaderboard/trending"
 ---
 
-Rank wallets by realized P&L over a trailing window. Each row includes P&L, volume, markets traded, grade, streak tier, and a daily P&L series. This discovery route covers Polymarket.
+List wallets ranked by Polymarket weekly or monthly P&L. Use it to find wallets with strong recent form before you enrich them.
 
-## Use this endpoint when
+## Read the ranking
 
-Use this endpoint to find wallets that are hot in a chosen period.
+- `window` is `7d` (default) or `30d`. `limit` is 1 to 50, default 20. Polymarket caps the ranked set at 50 wallets.
+- `trending_pnl_usd` and the row order come from Polymarket's leaderboard, not a local sum. `rank` is 1-based and stable across pages.
+- `daily_pnl_series` is a shape-only sparkline of per-day deltas. It does not have to sum to `trending_pnl_usd`.
+- `grade` is the all-time grade and is absent for an unranked trader. `streak_tier` is a separate axis over the last 7 days.
+- `window_trade_days` and `window_markets_traded` come from local trades and are `0` when the wallet is not in the database.
+- `platform` is `polymarket`. The read model covers Polymarket only.
 
-Set the lookback with `window`. Use a wider window for durable results and a shorter window for recent form.
+## Handle the 503
+
+1. A `503` with `error.reason: "read_model_warming"` means the read model is cold. It is not a rate limit.
+2. Read `Retry-After` (seconds) or `error.retry_at` (RFC3339).
+3. Retry only this route after that interval. Other routes stay available.
+4. A `503` without a `reason` is the rate-limiter outage cooldown. `Retry-After` still applies.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/leaderboard/trending?window=7d&limit=20"
 ```
 
-The route can return `503` with `Retry-After` while the read model warms. Retry after the hint. Pass `next_cursor` as `cursor`. See [Pagination](/concepts/pagination).
+## Cache the ranking
 
-## Example: find seven-day leaders
+The response carries an `ETag`. Send it as `If-None-Match` to get `304 Not Modified` when the board is unchanged.
 
-Request `window=7d`. Add the returned wallets to a follow list, then enrich them with [Batch Get Traders](/api-reference/endpoint/batch-get-traders).
+## Related
+
+[Get Leaderboard](/api-reference/endpoint/get-leaderboard) ranks by the all-time grade. [Batch Get Traders](/api-reference/endpoint/batch-get-traders) enriches the returned wallets.

@@ -3,44 +3,49 @@ title: "Get Sports Edge Observations"
 openapi: "GET /api/v1/sports-edge-observations"
 ---
 
-Collect sports observations that stay outside the funded Sports Edge slate. Use them for research, not order execution.
+Measure three observation-only Polymarket sports cohorts outside the funded [Sports Edge Signals](/api-reference/endpoint/get-sports-edge-signals). Use this endpoint for research, never for order execution. It needs the Pro plan.
 
-## Use this endpoint when
+## Read the cohorts
 
-Use this endpoint to study wider-holder pre-game markets or provider-confirmed in-play markets.
+`cohort` is required.
 
-Pass one required `cohort`:
+- `wider_holder` measures pre-game holder piles outside the funded route's admission, with recent-flow rows that its caps rejected.
+- `in_play` admits only provider-confirmed live games. It fails closed when the live board, holder, or directional evidence is stale or unavailable.
+- `emerging_pile` projects `wider_holder` rows with `sharp_pct` in `[0.75, 0.85)`, `holder_scan_complete=true`, and a kickoff after its pinned cutoff. It overlaps `wider_holder` and adds no new work.
 
-- `wider_holder` measures graded-holder consensus without a recent whale-flow requirement.
-- `in_play` measures provider-confirmed live games. Missing live, holder, or direction data emits no row.
+## Read the rows
 
-Every row has `observation_only: true`. This endpoint does not feed [Sports Edge Signals](/api-reference/endpoint/get-sports-edge-signals) or Pick of the Day.
+- `observation_only` is always `true`.
+- `category` is one of 14 sport buckets. Omit it to get all 14, with `Table Tennis` and `Pickleball`. Those two stay outside the funded projection.
+- `holder_scan_complete=false` means the pile is a lower bound. It cannot support a capital promotion.
+- `directional_status` is `available`, `unknown_ungrouped`, `unknown_stale`, or `unavailable`. A `wider_holder` row stays emitted with `unavailable`. An `in_play` row is not emitted.
+- `degraded` is snapshot-wide. `true` means an operational failure or an unknown completeness state made the snapshot partial. `capacity_limited` rows do not set it.
+- `funnel.sports[]` accounts for every input per sport. `reconciled` is `true` only when `input` equals `terminal_total`. A mismatch is an operational fault, not an empty cohort.
+- `snapshot_as_of` is the snapshot completion time. A healthy `wider_holder` snapshot serves for about 180 seconds. An `in_play` request never serves a snapshot older than about 30 seconds. A degraded snapshot serves for about 30 seconds.
 
-## Example: collect tennis observations
+## Handle the 503
+
+1. Read `error.reason` on a `503`. `read_model_warming` means a refresh is in flight, a compute deadline expired, or the provider-work admission is busy.
+2. Retry this route only after `Retry-After` or `error.retry_at`. Do not add it to a shared rate-limit backoff.
+3. A `503` without `error.reason` is the rate limiter outage. Retry after `Retry-After`.
+
+A SQL or Redis coordination failure returns `500 internal_error`. A later board, holder, or price failure stays in a `200` with `degraded=true`. The compute deadline is about 25 seconds under the 30-second router timeout. A `408` has an empty body.
+
+## Handle the cursor
+
+1. Read `next_cursor`. It is a signed `seo_v2_` cursor that pins `snapshot_as_of`, `cohort`, `rank`, and `condition_id`.
+2. Send it only with the same `cohort`. A cursor cannot cross cohorts.
+3. A refreshed snapshot returns `400` with `error.reason="cursor_expired"`. Request the first page again.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/sports-edge-observations?cohort=wider_holder&category=Tennis&limit=20"
 ```
 
-Omit `category` to evaluate all 14 observation sports. The observation registry includes Table Tennis and Pickleball. These sports stay outside the funded 12-sport projection.
+## Cache the page
 
-For `in_play`, provider `event_status` is authoritative when present. `Live` and `Paused` count as active. `Ended` does not.
+The 200 response carries a weak `ETag` over the stable page payload. Request-specific `meta` is excluded. Send `If-None-Match` to get `304 Not Modified` with an empty body. Both `200` and `304` set `Cache-Control: private, no-cache`, so revalidate before every reuse. A fresh compute reports `meta.cost` of 5. A cache hit reports 1.
 
-## Read the result
+## Related
 
-Read the top-level `degraded` boolean. `true` means the snapshot is partial or its completeness is unknown.
-
-Read the per-sport `funnel`. For each sport, `input` equals `terminal_total`. The terminal counts explain emitted and excluded candidates.
-
-`capacity_limited` means bounded admission. It does not set `degraded: true` by itself.
-
-An emitted `wider_holder` row can have `directional_status: "unavailable"`. An `in_play` row fails closed when direction is unavailable.
-
-The API can return `503 rate_limit_unavailable` with `error.reason: "read_model_warming"` during refresh contention. Retry after `Retry-After`.
-
-The API returns `500 internal_error` for category, coordination, observation-universe, or primary-slate SQL failures. Later incomplete board, holder, price, or metadata work stays in a degraded `200` response.
-
-The route uses an `seo_` cursor tied to `snapshot_as_of` and `cohort`. Do not reuse it after the snapshot changes or across cohorts.
-
-Send the same query with `If-None-Match` to receive `304 Not Modified` when the stable payload is unchanged. A transport timeout returns `408 Request Timeout` with an empty body.
+[Get Sports Edge Signals](/api-reference/endpoint/get-sports-edge-signals) returns the funded pre-game list.

@@ -3,14 +3,19 @@ title: "Create Webhook"
 openapi: "POST /api/v1/webhooks"
 ---
 
-Register an HTTPS endpoint for [webhook events](/guides/webhooks#event-types). The endpoint starts as `pending_verification`.
+Register an HTTPS endpoint for [webhook events](/guides/webhooks#choose-event-types). The endpoint starts as `pending_verification` and receives nothing until you verify it.
 
-## Use this endpoint when
+## Create the endpoint
 
-Use this endpoint when a worker needs push alerts for new whale trades. Verify the endpoint before you expect deliveries.
+- `url` must be a public HTTPS URL with no credentials. The API rejects `localhost`, `.local`, `.internal`, and private or loopback IP addresses.
+- `event_types` needs one or more types from [List Webhook Events](/api-reference/endpoint/list-webhook-events). Four types deliver only to a key on an active Pro subscription.
+- One account holds at most 10 endpoints. A second endpoint with the same URL returns `400`.
+- The response shows `signing_secret` and `verification.token` once. Store both now.
+- `verification.expires_at` is 24 hours after creation.
 
 ```bash
-curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
+curl -X POST \
+  -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   -H "Idempotency-Key: webhook-create-2026-06-01" \
   -H "Content-Type: application/json" \
   -d '{
@@ -21,12 +26,14 @@ curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/webhooks"
 ```
 
-The response includes `signing_secret` and `verification.token` once. **Copy the secret now.** You cannot retrieve it later. Use the secret to check each `x-0xinsider-signature` header. Then call [Verify Webhook](/api-reference/endpoint/verify-webhook).
+## Handle the Idempotency-Key 409
 
-See the [Webhooks guide](/guides/webhooks) for signature code.
+Send `Idempotency-Key` when a timeout hides the result. The same key and body return the original response.
 
-Send `Idempotency-Key` when you retry after a timeout. The same key and body return the original webhook. A different body with that key returns `422`.
+1. On `409` with `error.reason="idempotency_in_progress"`, keep the same key and body.
+2. Wait a few seconds, then send the same request again.
+3. On `422`, the key was used with a different body. Send a new key.
 
-## Example: start a whale-trade alert
+## Related
 
-Register `whale_trades_inserted`, save the secret in your server secret store, then verify the returned token.
+[Verify Webhook](/api-reference/endpoint/verify-webhook) activates the endpoint with the token from this response.

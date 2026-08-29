@@ -3,27 +3,38 @@ title: "Get Whale Trades"
 openapi: "GET /api/v1/whale-trades"
 ---
 
-List recent large trades, newest first. Each item includes the trader grade and a trade signal score.
+List recent large trades, newest first, with the trader grade and signal scores. Use this endpoint for an alert feed or a live whale view.
 
-## Use this endpoint when
+## Read the trades
 
-Use this endpoint to power an alert feed or find current whale activity.
+- `side` is `BUY` or `SELL`, the trade direction. `outcome` is the traded leg label, such as `Yes`, `No`, or a team name. It is null for a multi-outcome or unsynced market.
+- `token_id` is the Polymarket CLOB token for the traded outcome. It is null for Kalshi and unsynced markets.
+- `signal_score` is the current 0 to 1 score. It can change when the score inputs change.
+- `recorded_signal_score` is written once when the row is inserted. It is null for legacy rows.
+- `suspicion_score` is the persisted 0 to 100 score, or null. `suspicion_track` is `whale`, `fresh_conviction`, or `sliced_position`, or null.
+- `trader.grade` is nullable. `market.category` is the provider-backed category.
+- `has_more` and `next_cursor` reflect the filtered set. The cursor is a composite of `traded_at` and `id`.
 
-Common filters:
+## Filter the list
 
-- `min_grade=A`: only trades from S/A-grade traders (set `B` to widen).
-- `category=crypto`: restrict to a market category.
-- `min_size=10000`: floor on trade notional in USD.
+- `min_size` is the minimum trade size in USD. The default is 5000.
+- `category` accepts a canonical bucket such as `Basketball` or a raw provider value such as `NBA`. It is case-insensitive.
+- `min_grade` accepts `S`, `A`, `B`, `C`, `D`, or `F`. `A` returns S and A traders. `S` returns S traders only.
+- `suspicious_only=true` keeps rows with `suspicion_score >= 60`.
+- `limit` is 1 to 100 with a default of 20.
+- There is no `side` or `platform` filter on this route. Use [Get Whale Trades History](/api-reference/endpoint/get-whale-trades-history) for a `platform` filter.
 
-The response carries `side` (`buy` or `sell`). The request has no `side` filter.
+Every filter runs in SQL before pagination.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/whale-trades?min_grade=A&category=crypto&min_size=10000&limit=50"
+  "https://api.0xinsider.com/api/v1/whale-trades?min_grade=A&category=Basketball&min_size=10000&limit=50"
 ```
 
-The response uses timestamp cursor pagination. Use [Whale Trades History](/api-reference/endpoint/get-whale-trades-history) for fixed ranges and [Get Whale Trade](/api-reference/endpoint/get-whale-trade) for one item.
+## Cache the list
 
-## Example: alert on large crypto trades
+The 200 response carries an `ETag`. Send `If-None-Match` to get `304 Not Modified` with an empty body when nothing changed.
 
-Request `min_grade=A`, `category=crypto`, and `min_size=10000`. Keep the returned `wt_...` ID for a detail request.
+## Related
+
+[Get Whale Trade](/api-reference/endpoint/get-whale-trade) returns one trade with its counterparty analysis.

@@ -1,94 +1,103 @@
 ---
 title: "Signal Scoring"
-description: "Choose the right trader, trade, and market signal field."
+description: "Pick the trader, trade, market, or sports score field that answers your question."
 ---
 
-Each score answers a different question. Use the field that matches your task.
+Each score field answers one question. Read this page when you must choose between `grade`, `signal_score`, `sharp_money`, and the discovery scores.
 
-## Trader quality: grade and score
+## Score a trader
 
-On every trader and leaderboard entry:
+Every trader and leaderboard entry carries these fields:
 
-- `grade`: a letter from `S` to `F`. The headline quality signal. See [Grades](/concepts/grades).
-- `score`: the numeric composite (0-100) behind the grade.
-- `streak_tier`: recent form, separate from the all-time grade. One of `hot`, `rising`, `neutral`, `cooling`, `cold`.
-- `rank`: position on the leaderboard.
+- `grade` is the all-time quality letter, `S` to `F`. See [Grades](/concepts/grades).
+- `score` is the cohort percentile behind the grade, 0 to 100, clamped inside the grade band.
+- `streak_tier` is recent form: `hot`, `rising`, `neutral`, `cooling`, or `cold`. It is a percentile of the last 7 days across the cohort. It is `null` with no recent activity.
+- `rank` is the leaderboard position.
 
-`grade` is long-term quality. `streak_tier` is recent form. An A-grade trader can be `cooling`; a B-grade trader can be `hot`.
+`grade` and `streak_tier` are separate axes. An `A` trader can be `cooling`. A `B` trader can be `hot`.
 
-## Deeper trader metrics: quant_metrics
+For skill and copyability detail, request `expand=quant_metrics`. See [Quant metrics](/concepts/quant-metrics).
 
-For risk and performance detail, request [`quant_metrics`](/concepts/quant-metrics) with `expand=quant_metrics`. It returns nine fields:
+## Score one trade
 
-- `smart_score`: how skilled is this trader, risk-adjusted, versus the field.
-- `copy_score`: how safely could you copy them, after penalising traits that make a strategy hard to replicate.
+Each [whale trade](/api-reference/endpoint/get-whale-trades) carries `signal_score`, a number from 0.0 to 1.0.
 
-The other fields include 7-day and 30-day Sharpe, profit factor, edge consistency, and percentiles. Read `null` as not computed.
+The raw score adds four parts, then divides by 80 and clamps to 0.0 to 1.0:
 
-## Per-trade strength: signal_score
+| Part | Points | Rule |
+|---|---|---|
+| Size | 0 to 25 | `size_usd / 100000 x 25`, capped at 25 |
+| Trader win rate | 0 to 25 | `win_rate x 25`, or 8 when the win rate is unknown |
+| Recency | 15 to 0 | 15 at the fill, 0 after 24 hours |
+| Contrarian bonus | 0 to 15 | Only when `price` is under 0.30 and `win_rate` is over 0.55 |
 
-Each [whale trade](/api-reference/endpoint/get-whale-trades) carries `signal_score`. Use it to rank individual fills, not whole traders.
+- `signal_score` decays with time. The same trade scores lower tomorrow.
+- `recorded_signal_score` is written once at insert. It is `null` on legacy rows.
+- Use `signal_score` to rank fills. Use `grade` to rank traders.
 
 ```json
 {
-  "object": "whale_trade",
-  "data": {
-    "id": "wt_...",
-    "size_usd": 48200.0,
-    "side": "BUY",
-    "price": 0.61,
-    "signal_score": 87.3,
-    "trader": { "address": "0x...", "grade": "S" },
-    "market": { "title": "...", "category": "politics" }
-  }
+  "id": "wt_1830042",
+  "traded_at": "2026-08-28T14:02:11Z",
+  "size_usd": 48200.0,
+  "side": "BUY",
+  "price": 0.61,
+  "signal_score": 0.7312,
+  "recorded_signal_score": 0.9187,
+  "trader": { "id": "trd_0x204f72f35326db932158cba6adff0b9a1da95e14", "grade": "S" }
 }
 ```
 
-## Market direction: smart money
+## Read market direction
 
-[Market intel](/api-reference/endpoint/get-market-intel) and [smart-money flows](/api-reference/endpoint/smart-money-flows) return `smart_money`:
+[Market intel](/api-reference/endpoint/get-market-intel) and [sharp-money flows](/api-reference/endpoint/sharp-money-flows) return `sharp_money`. `smart_money` is a deprecated alias with the same bytes.
 
 | Field | Meaning |
 |---|---|
-| `net_flow_usd` | Buy volume minus sell volume from graded traders, in USD. The headline number. |
-| `direction` | `YES` or `NO`: the side net flow is leaning toward. |
-| `buy_volume_usd` | Graded buy volume in the timeframe. |
-| `sell_volume_usd` | Graded sell volume in the timeframe. |
-| `whale_trade_count` | Number of qualifying whale trades. |
-| `top_positions` | The largest graded positions on the market, with trader and side. |
+| `net_flow_usd` | Net YES volume minus NO volume from graded traders, in USD |
+| `direction` | `YES` or `NO`, the side of the net flow |
+| `token_id` | Polymarket CLOB token id for that side, `null` on Kalshi |
+| `buy_volume_usd`, `sell_volume_usd` | Graded buy and sell volume in the timeframe |
+| `whale_trade_count` | Whale trades in the timeframe |
+| `top_positions` | Open positions of `S`, `A`, and `B` traders on the market (market intel only) |
 
-```json
-{
-  "smart_money": {
-    "net_flow_usd": 312500.0,
-    "direction": "YES",
-    "buy_volume_usd": 540000.0,
-    "sell_volume_usd": 227500.0,
-    "whale_trade_count": 41
-  }
-}
+Flow endpoints filter with `min_grade`. The default `B` counts `S`, `A`, and `B` traders and excludes unranked traders.
+
+```bash
+curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
+  "https://api.0xinsider.com/api/v1/markets/sharp-money-flows?timeframe=24h&min_grade=B&limit=10"
 ```
 
-Read `net_flow_usd` and `direction` to see the net side. A positive value with `direction: YES` means graded traders bought more YES than they sold.
+## Rank markets for discovery
 
-## Market discovery: smart_score
+[Explore](/api-reference/endpoint/explore-markets) returns per-market discovery fields:
 
-The [explore](/api-reference/endpoint/explore-markets) feed uses separate discovery fields:
+- `discover_score` is the backend score behind `sort=hot`. `score_components` shows its parts.
+- `smart_score`, `smart_count`, and `smart_label` summarize sharp-money activity on the market. They are nullable.
 
-- `smart_score`: a per-market smart-money intensity used for ranking.
-- `smart_count`: how many graded traders are active on the market.
-- `smart_label`: a short human-readable tag.
-- `discover_score`: the backend-owned score behind the default hot sort.
+Use `sort` to order the feed. Use `sharp_money.net_flow_usd` to read one market.
 
-These fields rank markets. They are not the `smart_money` flow object. Use `smart_money.net_flow_usd` for one market and `sort` for market discovery.
+## Read a sports signal
 
-## Picking the right field
+[Sports-edge signals](/api-reference/endpoint/get-sports-edge-signals) use their own fields:
+
+- `smart_score` is `(yes_usd - no_usd) / (yes_usd + no_usd)`, from -1 to 1. It is not the explore field.
+- `conviction_score` is `(5 x s_count + 4 x a_count + 3 x b_count) x sharp_pct`.
+- `min_grade` accepts `S`, `A`, and `B` only. `C`, `D`, and `F` return `400`.
+
+## Choose the field
 
 | Question | Field |
 |---|---|
-| Is this trader worth following? | `grade` (and `score`) |
-| How skilled is this trader, in detail? | `quant_metrics.smart_score` (and `copy_score` for copyability) |
-| Is this trader in recent form? | `streak_tier` |
-| Is this single trade a strong signal? | `signal_score` |
-| Which way is smart money leaning on this market? | `smart_money.net_flow_usd` and `direction` |
-| Which markets should I surface? | explore `sort` (driven by `discover_score`) |
+| Is this trader worth a follow? | `grade`, then `score` |
+| How skilled is this trader in detail? | `quant_metrics.smart_score` |
+| How safe is this trader to copy? | `quant_metrics.copy_score` |
+| Is this trader in form now? | `streak_tier` |
+| Is this one fill a strong signal? | `signal_score` |
+| Which side is graded money on? | `sharp_money.net_flow_usd` and `direction` |
+| Which markets should I show first? | explore `sort` |
+| Which pre-game market has the deepest pile? | sports-edge `conviction_score` |
+
+## Related
+
+[Quant metrics](/concepts/quant-metrics) explains `smart_score` and `copy_score`.

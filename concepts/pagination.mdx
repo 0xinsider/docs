@@ -1,70 +1,104 @@
 ---
 title: "Pagination"
-description: "Page through list endpoints with cursors in JavaScript or Python."
+description: "Page through list endpoints with cursors and recover from cursor_expired."
 ---
 
-Every list endpoint uses a cursor. There is no `offset` or page number.
+Every list endpoint uses a cursor. The API has no `offset` and no page number. Read this page before you write a loop that reads more than one page.
 
-## The shape
-
-A list response looks like this:
+## Read the envelope
 
 ```json
 {
   "object": "list",
-  "data": [ /* up to `limit` items */ ],
+  "data": [],
   "has_more": true,
-  "next_cursor": "95.85_0x885783760858e1bd5dd09a3c3f916cfa251ac270",
-  "meta": { "request_id": "req_abc123", "cached": false }
+  "next_cursor": "2026-08-28T14:02:11+00:00_wt_1830042",
+  "total": 4210,
+  "meta": { "request_id": "req_abc123", "cached": false, "cost": 1 }
 }
 ```
 
-Pass `next_cursor` back as the `cursor` query parameter:
+- `data` holds up to `limit` items.
+- `has_more` is `true` when another page exists.
+- `next_cursor` is the cursor for the next page. It is `null` on the last page.
+- `total` is present only when the read model exposes a count. Explore returns it on the first page only.
+
+## Set the parameters
+
+| Parameter | Type | Default | Maximum |
+|---|---|---|---|
+| `limit` | integer | `20` | `100` (`50` on `/leaderboard/trending`) |
+| `cursor` | string | none | none |
+
+Pass `next_cursor` back as `cursor`. URL-encode it. Stop when `has_more` is `false`.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/leaderboard?limit=20&cursor=95.85_0x885..."
+  "https://api.0xinsider.com/api/v1/whale-trades?limit=100&cursor=2026-08-28T14%3A02%3A11%2B00%3A00_wt_1830042"
 ```
 
-Stop when `has_more` is `false`.
+## Treat the cursor as opaque
 
-## Parameters
+Do not parse or build a cursor. Pass the latest `next_cursor` back unchanged. Each endpoint encodes its own cursor:
 
-| Parameter | Type | Default | Max |
-|---|---|---|---|
-| `limit` | integer | `20` | `100` |
-| `cursor` | string | — | — |
+| Endpoint | Cursor shape |
+|---|---|
+| `/whale-trades` | `{traded_at RFC3339}_wt_{id}` |
+| `/whale-trades/history` | `{traded_at RFC3339}_wth_{id}` |
+| `/leaderboard` | `lbv1_...`, bound to the ranking generation and the `category` and `strategy` filters |
+| `/positions` | `pb_...`, keyset on value, wallet, market, and outcome |
+| `/insider-radar` | `{suspicion_score}_{id}` |
+| `/markets/smart-money-flows`, `/markets/sharp-money-flows` | `smf_...`, pinned to the first-page `as_of` |
+| `/sports-edge-signals` | `ses_...`, pinned to the snapshot |
+| `/sports-edge-observations` | `seo_v2_...`, pinned to the snapshot and cohort |
 
-## Example: read every page
+A cursor works only on the endpoint and filters that produced it. Restart from page one when a filter changes.
 
-This loop reads every leaderboard page.
+## Handle a 400
+
+A cursor request returns `400` with `error.code="bad_request"` in two cases. Branch on `error.reason`.
+
+- `error.reason="cursor_expired"` with `error.param="cursor"`: the data behind the walk changed, for example a leaderboard generation or a flow snapshot refreshed. The cursor is not malformed.
+- No `error.reason`: the cursor or another parameter is malformed. Read `error.param` and `error.message`, for example `Invalid cursor format`.
+
+Recover from `cursor_expired`:
+
+1. Discard the rows you collected.
+2. Request the first page again without `cursor`.
+3. Continue with the new `next_cursor`.
+
+A `cursor_expired` error carries no `Retry-After` and no `error.retry_at`. A wait changes nothing.
+
+## Read every page
 
 <CodeGroup>
 ```javascript JavaScript
-const KEY = process.env.OXINSIDER_API_KEY;
-const headers = { Authorization: `Bearer ${KEY}` };
+const headers = { Authorization: `Bearer ${process.env.OXINSIDER_API_KEY}` };
 
 async function listAll(path, params = {}) {
-  const items = [];
-  let cursor;
-  do {
-    const qs = new URLSearchParams({ limit: "100", ...params });
-    if (cursor) qs.set("cursor", cursor);
-
-    const res = await fetch(
-      `https://api.0xinsider.com/api/v1${path}?${qs}`,
-      { headers }
-    );
-    const body = await res.json();
-    items.push(...body.data);
-    cursor = body.has_more ? body.next_cursor : undefined;
-  } while (cursor);
-
-  return items;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const items = [];
+    let cursor;
+    let expired = false;
+    do {
+      const qs = new URLSearchParams({ limit: "100", ...params });
+      if (cursor) qs.set("cursor", cursor);
+      const res = await fetch(`https://api.0xinsider.com/api/v1${path}?${qs}`, { headers });
+      const body = await res.json();
+      if (res.status === 400 && body.error?.reason === "cursor_expired") {
+        expired = true;
+        break;
+      }
+      if (!res.ok) throw new Error(body.error?.message ?? res.statusText);
+      items.push(...body.data);
+      cursor = body.has_more ? body.next_cursor : undefined;
+    } while (cursor);
+    if (!expired) return items;
+  }
+  throw new Error("cursor expired three times");
 }
 
-const leaders = await listAll("/leaderboard");
-console.log(`Fetched ${leaders.length} traders`);
+const trades = await listAll("/whale-trades", { min_grade: "A" });
 ```
 
 ```python Python
@@ -74,37 +108,30 @@ BASE = "https://api.0xinsider.com/api/v1"
 H = {"Authorization": f"Bearer {os.environ['OXINSIDER_API_KEY']}"}
 
 def list_all(path, **params):
-    items, cursor = [], None
-    while True:
-        p = {"limit": 100, **params}
-        if cursor:
-            p["cursor"] = cursor
-        body = requests.get(f"{BASE}{path}", params=p, headers=H).json()
-        items.extend(body["data"])
-        if not body.get("has_more"):
+    for _ in range(3):
+        items, cursor, expired = [], None, False
+        while True:
+            p = {"limit": 100, **params}
+            if cursor:
+                p["cursor"] = cursor
+            res = requests.get(f"{BASE}{path}", params=p, headers=H)
+            body = res.json()
+            if res.status_code == 400 and body.get("error", {}).get("reason") == "cursor_expired":
+                expired = True
+                break
+            res.raise_for_status()
+            items.extend(body["data"])
+            if not body["has_more"]:
+                return items
+            cursor = body["next_cursor"]
+        if not expired:
             return items
-        cursor = body["next_cursor"]
+    raise RuntimeError("cursor expired three times")
 
-leaders = list_all("/leaderboard")
-print(f"Fetched {len(leaders)} traders")
+trades = list_all("/whale-trades", min_grade="A")
 ```
 </CodeGroup>
 
-## Treat cursors as opaque
+## Related
 
-Do not parse or construct cursors. Use the latest `next_cursor`.
-
-Different endpoints encode cursors differently:
-
-- **Leaderboard**: `{score}_{address}`
-- **Whale trades**: `{timestamp}_{id}` (ISO 8601)
-- **Insider radar**: `{score}_{id}`
-
-Pass the string back without changing it.
-
-## Common mistakes
-
-- **Filters changed.** Restart when any filter changes.
-- **Endpoint changed.** A leaderboard cursor cannot page whale trades.
-- **`400 Invalid cursor format`.** Drop the cursor and start again.
-- **Cursor is old.** Restart after a long pause or a sort change.
+[Number formatting](/concepts/number-formatting) explains the values inside each page.

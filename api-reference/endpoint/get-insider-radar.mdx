@@ -3,21 +3,32 @@ title: "Get Insider Radar"
 openapi: "GET /api/v1/insider-radar"
 ---
 
-Find wallets with unusual pre-resolution activity, timing, or one-sided positions.
+List heuristic flags for suspicious trade patterns: pre-resolution accumulation and coordinated wallets. Use this endpoint to build a review queue.
 
-## Use this endpoint when
+## Read the flags
 
-Use this endpoint to build a review queue for possible insider-like patterns.
+- `suspicion_score` is 0 to 100. `severity` is `flag` or `watch`.
+- The order is highest suspicion first. The cursor is a composite of `suspicion_score` and `id`.
+- `scores.timing`, `scores.edge`, `scores.size`, and `scores.fresh_wallet` are the recorded component scores. Each is nullable and fixed at detection time.
+- `evidence` is structured JSON with the detection detail.
+- `trader.id` is the `trd_` ID and `market.id` is the `mkt_` ID. Both objects also carry the raw `address` or `condition_id`.
+- A high score marks a review target. It does not prove insider activity.
 
-Each flag has a `suspicion_score` and a reason. A high score marks a review target. It does not prove wrongdoing.
+## Filter the queue
+
+- `min_suspicion` is 0 to 100 with a default of 0. A value outside that range returns `400`.
+- `severity` accepts `flag` or `watch`.
+- `limit` is 1 to 100 with a default of 20.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/insider-radar?limit=20"
+  "https://api.0xinsider.com/api/v1/insider-radar?min_suspicion=60&severity=flag&limit=20"
 ```
 
-The response uses score-ordered cursor pagination. See [Pagination](/concepts/pagination). Use [Get Insider Radar Flag](/api-reference/endpoint/get-insider-radar-flag) for one result.
+## Cache the list
 
-## Example: triage new flags
+The 200 response carries an `ETag`. Send `If-None-Match` to get `304 Not Modified` with an empty body when nothing changed.
 
-Poll this endpoint on a schedule, sort by `suspicion_score`, and request the highest-priority `rf_...` flags for review.
+## Related
+
+[Get Insider Radar Flag](/api-reference/endpoint/get-insider-radar-flag) returns one flag by its `rf_` ID.

@@ -1,36 +1,36 @@
 ---
 title: "Quickstart"
-description: "Create a key, test the API, and follow high-grade traders."
+description: "Create an API key, test it, and follow high-grade traders with four requests."
 ---
 
-Create a key, test it, then follow high-grade traders.
+Create an API key, test it, then follow high-grade traders with four requests. Use this page when you start a new integration.
 
-## 1. Generate your API key
+## Create a key
 
-API access requires an [Insider subscription](https://0xinsider.com/pricing).
+API access needs an active [Pro subscription](https://0xinsider.com/pricing).
 
 <Steps>
   <Step title="Sign up or log in">
-    [0xinsider.com/sign-up](https://0xinsider.com/sign-up)
+    Open [0xinsider.com/sign-up](https://0xinsider.com/sign-up).
   </Step>
   <Step title="Subscribe to Pro">
-    Pick the Insider plan on [Pricing](https://0xinsider.com/pricing).
+    Choose a Pro billing period on [Pricing](https://0xinsider.com/pricing).
   </Step>
-  <Step title="Generate your key">
-    On [Developers](https://0xinsider.com/developers), click **Generate Key** and copy the value. You see it once. Regeneration revokes the old key.
+  <Step title="Generate the key">
+    Open [Developers](https://0xinsider.com/developers) and click **Generate token**. The page shows the full key once. Copy it now.
   </Step>
 </Steps>
 
-Keys start with `oxi_sk_live_` and contain 64 hex characters after the prefix.
+A key starts with `oxi_sk_live_` and continues with 64 hex characters.
 
 <Tip>
-  Store it in an environment variable:
+  Store the key in an environment variable:
   ```bash
   export OXINSIDER_API_KEY="oxi_sk_live_..."
   ```
 </Tip>
 
-## 2. Test the key
+## Test the key
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
@@ -60,109 +60,78 @@ curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
 }
 ```
 
-The `200` response confirms that the key works. This route does not spend primary quota.
+- A `200` response means the key and the subscription are active.
+- This route does not spend the 100-request budget. It has its own guard of 100 reads per minute.
+- `daily_usage.limit` and `daily_usage.remaining` are `null` because V1 has no daily cap.
 
-<Tip>
-  Browser apps can call public REST endpoints under
-  `https://api.0xinsider.com/api/v1/*` directly from any origin with
-  `Authorization: Bearer ...`; do not send cookies or `credentials: "include"`.
-  Remote MCP at `/api/v1/mcp` still validates `Origin` against the
-  0xinsider/localhost allowlist. Browser JavaScript can read `X-RateLimit-*`,
-  `Retry-After`, `ETag`, `X-Request-Id`, `X-Request-Cost`,
-  `X-Batch-RateLimit-*`, `Mcp-Session-Id`, and `X-Mcp-Error-Code` response
-  headers. Account/key-management routes such as `/api/keys` stay
-  first-party-only and credentialed.
-</Tip>
+## Follow high-grade traders
 
-## 3. Follow high-grade traders
+Use four calls in order: leaderboard, trader profile, whale trades, market intel.
 
-Use four calls: leaderboard, trader profile, whale trades, and market intel.
+<Steps>
+  <Step title="Read five leaderboard entries">
+    ```bash
+    curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
+      "https://api.0xinsider.com/api/v1/leaderboard?limit=5"
+    ```
+    Each item carries `id`, `grade`, `score`, `pnl`, and `strategy_type`. Keep the `id` values you want to inspect.
+  </Step>
+  <Step title="Read one trader profile">
+    The path accepts a wallet address, a known username, or a `trd_` ID:
+    ```bash
+    curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
+      "https://api.0xinsider.com/api/v1/trader/0x863134d00841b2e200492805a01e1e2f5defaa53"
+    ```
+    The response carries `grade`, `pnl`, `stats.win_rate`, `strategy`, and `category_strengths`. Add `expand=quant_metrics` or `expand=trust` for heavy fields.
+  </Step>
+  <Step title="Read recent high-grade trades">
+    Read 50 recent trades from A-grade or better traders:
+    ```bash
+    curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
+      "https://api.0xinsider.com/api/v1/whale-trades?min_grade=A&limit=50"
+    ```
+    Add `category` and `min_size` for a narrower feed:
+    ```bash
+    curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
+      "https://api.0xinsider.com/api/v1/whale-trades?min_grade=A&category=crypto&min_size=10000&limit=50"
+    ```
+  </Step>
+  <Step title="Read one market">
+    Take `market.condition_id` from a trade. The path also accepts the `mkt_` ID from `market.id`:
+    ```bash
+    curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
+      "https://api.0xinsider.com/api/v1/market/<condition_id>/intel"
+    ```
+    `sharp_money` carries `direction`, `net_flow_usd`, `buy_volume_usd`, `sell_volume_usd`, and `top_positions`.
+  </Step>
+</Steps>
 
-### Step A: Get five leaderboard entries
+Run this loop in a cron job, a chatbot, or a dashboard.
 
-```bash
-curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/leaderboard?limit=5"
-```
-
-Each item includes an ID, grade, score, P&L, and strategy. Keep the IDs you want to inspect.
-
-### Step B: Read one trader profile
-
-Pass a wallet address or a known username:
-
-```bash
-curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/trader/0x863134d00841b2e200492805a01e1e2f5defaa53"
-```
-
-The response includes realized P&L, win rate, category strengths, and open positions.
-
-### Step C: Find recent high-grade trades
-
-Get 50 recent trades from A-grade or better traders:
-
-```bash
-curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/whale-trades?min_grade=A&limit=50"
-```
-
-Add category and size filters when you need a narrower feed:
-
-```bash
-curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/whale-trades?min_grade=A&category=crypto&min_size=10000&limit=50"
-```
-
-### Step D: Read one market
-
-Take the trade's `condition_id` and request market intel. Use the raw value or the `mkt_...` ID returned by V1:
-
-```bash
-curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/market/<condition_id>/intel"
-```
-
-Market Intel shows graded-trader buy and sell flow, top positions, and direction.
-
-Use this loop in a cron job, chatbot, or dashboard: **leaderboard -> trader profile -> whale trades -> market intel**.
-
-## The same workflow in code
+## Run the loop in code
 
 <CodeGroup>
 ```javascript JavaScript
-const KEY = process.env.OXINSIDER_API_KEY;
-const headers = { Authorization: `Bearer ${KEY}` };
+const headers = { Authorization: `Bearer ${process.env.OXINSIDER_API_KEY}` };
+const BASE = "https://api.0xinsider.com/api/v1";
 
-const top = await fetch(
-  "https://api.0xinsider.com/api/v1/leaderboard?limit=5",
-  { headers }
-).then(r => r.json());
+const top = await fetch(`${BASE}/leaderboard?limit=5`, { headers }).then(r => r.json());
+const topId = top.data[0].id;
 
-const topId = top.data[0].id.replace(/^trd_/, "");
+const trader = await fetch(`${BASE}/trader/${topId}`, { headers }).then(r => r.json());
+const whales = await fetch(`${BASE}/whale-trades?min_grade=A&limit=50`, { headers }).then(r => r.json());
 
-const trader = await fetch(
-  `https://api.0xinsider.com/api/v1/trader/${topId}`,
-  { headers }
-).then(r => r.json());
-
-const whales = await fetch(
-  "https://api.0xinsider.com/api/v1/whale-trades?min_grade=A&limit=50",
-  { headers }
-).then(r => r.json());
-
-console.log({ top: top.data[0], trader: trader.data, whales: whales.data.length });
+console.log({ top: top.data[0], grade: trader.data.grade, whales: whales.data.length });
 ```
 
 ```python Python
 import os, requests
 
-KEY = os.environ["OXINSIDER_API_KEY"]
-H = {"Authorization": f"Bearer {KEY}"}
+H = {"Authorization": f"Bearer {os.environ['OXINSIDER_API_KEY']}"}
 BASE = "https://api.0xinsider.com/api/v1"
 
 top = requests.get(f"{BASE}/leaderboard", params={"limit": 5}, headers=H).json()
-top_id = top["data"][0]["id"].removeprefix("trd_")
+top_id = top["data"][0]["id"]
 
 trader = requests.get(f"{BASE}/trader/{top_id}", headers=H).json()
 whales = requests.get(
@@ -175,32 +144,37 @@ print(top["data"][0], trader["data"]["grade"], len(whales["data"]))
 ```
 </CodeGroup>
 
-## Lower the call count with a batch endpoint
+## Batch known traders
 
-If you already have wallet addresses or usernames, fetch up to 25 profiles in one call:
+If you already hold addresses or usernames, read up to 25 profiles in one call:
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"traders": ["0xabc...", "0xdef...", "0x123..."]}' \
+  -d '{"traders": ["swisstony", "0x0000000000000000000000000000000000000000"], "expand": ["strategy"]}' \
   "https://api.0xinsider.com/api/v1/traders/batch"
 ```
 
-Each batch item has its own status and error. One bad address does not fail the other items. Batch items use a separate budget; see [Rate Limits](/rate-limits).
+- Each item returns `status` as `ok` or `error`. One bad input does not fail the other items.
+- Each requested item costs one batch item unit from a separate budget. See [Rate Limits](/rate-limits).
 
-## Next
+<Tip>
+  Browser apps can call `/api/v1/*` from any origin with the `Authorization` header. Do not send cookies. See [Browser CORS](/api-reference/introduction#browser-cors).
+</Tip>
+
+## Go next
 
 <CardGroup cols={2}>
   <Card title="Local MCP Server" icon="terminal" href="/integrations/mcp">
-    Skip the HTTP plumbing. Give your AI agent the same tools directly.
+    Give an AI agent the same tools over stdio.
   </Card>
   <Card title="TypeScript Client" icon="code" href="/integrations/typescript-client">
-    Use the repo-owned source client with typed errors and `expand` helpers.
+    Build the typed client with error classes and cursor pagination.
   </Card>
   <Card title="Trader Grades" icon="medal" href="/concepts/grades">
-    What S, A, B, C, D, F actually mean.
+    Learn what S, A, B, C, D, and F mean.
   </Card>
-  <Card title="Errors & Rate Limits" icon="triangle-exclamation" href="/errors">
-    What to do when a request fails.
+  <Card title="Errors" icon="triangle-exclamation" href="/errors">
+    Recover from a failed request.
   </Card>
 </CardGroup>

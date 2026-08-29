@@ -1,53 +1,65 @@
 ---
 title: "Platforms"
-description: "Check Polymarket and Kalshi feature coverage at runtime."
+description: "Read the Polymarket and Kalshi capability matrix before you build a platform-specific workflow."
 ---
 
-0xinsider covers **Polymarket** and **Kalshi**. Coverage differs because some signals need on-chain data.
+0xinsider covers Polymarket and Kalshi. Coverage differs because grades, strategy, and whale signals need wallet-attributed Polymarket data, and Kalshi prints are anonymous.
 
-Check the capability response before you build a platform-specific workflow. Kalshi does not provide every grade or whale field.
-
-## The platform enum
-
-Use these lowercase `platform` values:
+## Use the platform values
 
 - `polymarket`
 - `kalshi`
+- `all` on filters that accept it. `all` equals an omitted filter.
 
-Some filters also accept `all`.
+## Read the capability matrix
 
-## Capability matrix
+[`GET /api/v1/platforms`](/api-reference/endpoint/get-platforms) is public and needs no API key. Read it at runtime instead of a hard-coded table.
 
-[`GET /api/v1/platforms`](/api-reference/endpoint/get-platforms) is the source of truth. Query it at runtime instead of hard-coding coverage.
+```bash
+curl "https://api.0xinsider.com/api/v1/platforms"
+```
 
 | Capability | Polymarket | Kalshi |
 |---|---|---|
-| Trader grade | Supported | Unsupported |
-| P&L | Supported | Partial |
-| Strategy classification | Supported | Unsupported |
-| Position timeline | Supported | Partial |
-| Whale signal | Supported | Unsupported |
-| Insider radar | Supported | Unsupported |
-| Market snapshot | Supported | Partial |
+| `grade` | `supported` | `unsupported` |
+| `pnl` | `supported` | `partial` |
+| `strategy` | `supported` | `unsupported` |
+| `timeline` | `supported` | `partial` |
+| `whale_signal` | `supported` | `unsupported` |
+| `insider_radar` | `supported` | `unsupported` |
+| `market_snapshot` | `supported` | `partial` |
 
-`supported` means all fields are available. `partial` means some fields are missing. `unsupported` means the feature does not apply and returns no data.
+- `supported` means every field of the surface is available.
+- `partial` means some fields are absent. A Kalshi market snapshot serves `last_price` only, with no top of book.
+- `unsupported` means the surface does not apply. Grades, P&L, strategy, and timelines come from a Polymarket-only pipeline.
+- The matrix is static backend metadata. The endpoint does not call a provider at request time.
 
-## Polymarket-only features
+## Know the Polymarket-only endpoints
 
-These surfaces are Polymarket-only:
+These endpoints read Polymarket data only. A Kalshi filter or id returns an empty list, never a fabricated row.
 
-- **Whale trades** ([`/whale-trades`](/api-reference/endpoint/get-whale-trades), [`/whale-trades/history`](/api-reference/endpoint/get-whale-trades-history)). The whale-trade feed is built from Polymarket fills only. A `platform=kalshi` filter returns nothing.
-- **Large positions** ([`/large-positions`](/api-reference/endpoint/list-large-positions)). The large-position scanner runs against Polymarket markets only.
+- [`/markets/explore`](/api-reference/endpoint/explore-markets). The `platform` parameter accepts `polymarket` only.
+- [`/large-positions`](/api-reference/endpoint/list-large-positions). The scanner filters `platform = 'polymarket'`.
+- [`/positions`](/api-reference/endpoint/get-positions). The `platform` field stays in the shape for a later Kalshi mirror.
+- [`/leaderboard/trending`](/api-reference/endpoint/list-trending-wallets). Ranks come from the Polymarket leaderboard.
+- [`/sports-edge-signals`](/api-reference/endpoint/get-sports-edge-signals) and [`/sports-edge-observations`](/api-reference/endpoint/get-sports-edge-observations).
 
-Trader grades, strategy classification, and insider radar are also Polymarket-only, as the matrix shows.
+## Read Kalshi rows on shared endpoints
 
-## What works on both
+These endpoints return rows from both platforms:
 
-These read paths return both Polymarket and Kalshi data:
+- [`/whale-trades/history`](/api-reference/endpoint/get-whale-trades-history) accepts `platform=polymarket`, `kalshi`, or `all`.
+- [`/markets/sharp-money-flows`](/api-reference/endpoint/sharp-money-flows) accepts the same values. The default is `all`.
+- [`/market/{condition_id}/intel`](/api-reference/endpoint/get-market-intel), [`/market/{condition_id}/snapshot`](/api-reference/endpoint/get-market-snapshot), and [`/markets/search`](/api-reference/endpoint/search-markets) return `market.platform`.
 
-- Trader profiles and P&L ([`/trader/{address}`](/api-reference/endpoint/get-trader), [`/trader/{address}/pnl`](/api-reference/endpoint/get-trader-pnl)), with the per-platform caveats above.
-- Positions board ([`/positions`](/api-reference/endpoint/get-positions)).
-- Market intel and smart-money flows ([`/market/{condition_id}/intel`](/api-reference/endpoint/get-market-intel), [`/markets/smart-money-flows`](/api-reference/endpoint/smart-money-flows)).
-- Market search and explore ([`/markets/search`](/api-reference/endpoint/search-markets), [`/markets/explore`](/api-reference/endpoint/explore-markets)).
+On a Kalshi row:
 
-For thin or absent Kalshi fields, [trust metadata](/concepts/trust-metadata) marks the value. `unsupported` data appears as `unavailable`.
+- `token_id` is `null`. Kalshi has no CLOB token.
+- A whale trade keeps its provider outcome label in `outcome`.
+- Trader fields such as `grade` can be `null` or absent.
+
+Do not infer a fact from a `null`. With `expand=trust`, [trust metadata](/concepts/trust-metadata) marks an absent Kalshi value as `unavailable`.
+
+## Related
+
+[Trust metadata](/concepts/trust-metadata) reports the source and completeness of each value.

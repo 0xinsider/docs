@@ -3,19 +3,29 @@ title: "List Webhook Deliveries"
 openapi: "GET /api/v1/webhooks/{id}/deliveries"
 ---
 
-List recent delivery attempts for one webhook, newest first.
+List the delivery attempts for one webhook endpoint, newest first. Use this endpoint when an event did not reach your receiver.
 
-## Use this endpoint when
+## Read the log
 
-Use this endpoint when a webhook alert did not reach your worker and you need its delivery status.
+- `status` is `pending`, `retry`, `processing`, `delivered`, or `dead_letter`.
+- `event_id` is the same on every retry of one event. Match it with `x-0xinsider-event-id` in your receiver log.
+- `attempt_count` is the number of attempts so far. The maximum is 8.
+- `last_response_status` is the HTTP status of the latest attempt. `last_error` names the latest failure.
+- `delivered_at` appears once your receiver returns a `2xx` status.
+- Rows omit the request body and the signing secret.
+- An endpoint you do not own returns `404`, the same as an unknown `id`.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/webhooks/123/deliveries?limit=50"
+  "https://api.0xinsider.com/api/v1/webhooks/42/deliveries?limit=50"
 ```
 
-The response uses cursor pagination. A webhook that you do not own returns `404`, like an unknown ID. Rows omit the request body and signing secret.
+## Page through the log
 
-## Example: investigate a missed alert
+1. Request the first page. `limit` accepts 1 to 100 and defaults to 50.
+2. Pass `next_cursor` as `cursor` on the next request.
+3. Stop when `has_more` is `false`.
 
-Read the newest attempts, compare their status and response fields with your server logs, and retry only after you fix the receiver.
+## Related
+
+The [Webhooks guide](/guides/webhooks) lists the retry schedule behind `attempt_count`.

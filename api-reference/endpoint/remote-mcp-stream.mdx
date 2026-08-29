@@ -4,21 +4,24 @@ sidebarTitle: "Remote MCP stream"
 openapi: "GET /api/v1/mcp"
 ---
 
-Open the server-to-client stream for [Remote MCP](/api-reference/endpoint/remote-mcp). Pass the `Mcp-Session-Id` from `initialize`.
+Open the optional server-to-client stream for a [Remote MCP](/api-reference/endpoint/remote-mcp) session. Use it only when your MCP client requires the GET stream. Every request and every tool result flows over POST.
 
-## Use this endpoint when
+## Read the stream
 
-Use this endpoint after you start a Remote MCP session and need a server-to-client stream.
+- The response is `200` with `Content-Type: text/event-stream` and `Cache-Control: no-cache`.
+- The server sends no notifications today. The body opens with one SSE comment line and then stays silent until you close it.
+- Send `Mcp-Session-Id` from `initialize`. The server echoes it on the response.
+- Auth matches POST: `Authorization: Bearer <key>`, with `?token=` as the deprecated path.
+- When the request carries an `Origin` header, it must match the 0xinsider allowlist or localhost. A rejected `Origin` returns `403` with JSON-RPC code `-32000`.
+- A tool result never arrives on this stream. Read it from the POST response.
 
 ```bash
 curl -N \
   -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   -H "Mcp-Session-Id: $SESSION_ID" \
-  https://api.0xinsider.com/api/v1/mcp
+  "https://api.0xinsider.com/api/v1/mcp"
 ```
 
-Keep the connection open for server-to-client notifications. The current GET stream sends only a keep-alive. Send `tools/call` to the POST endpoint to receive a tool response.
+## Related
 
-## Example: keep a session stream open
-
-Send the session ID from the initialize response. Do not wait for tool results on this GET stream. Use [Remote MCP](/api-reference/endpoint/remote-mcp) for POST requests and tool results.
+[Remote MCP](/api-reference/endpoint/remote-mcp) documents the session handshake, the error codes, and the tool list.

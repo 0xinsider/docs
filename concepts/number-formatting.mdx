@@ -1,35 +1,69 @@
 ---
 title: "Number Formatting"
-description: "Read decimal precision, truncation, nulls, and unavailable values."
+description: "Read decimal precision, truncation, integer fields, display twins, and nulls."
 ---
 
-The API returns JSON numbers, not numeric strings. Decimal values are **truncated**, not rounded.
+The API returns JSON numbers, not numeric strings. Each decimal is truncated toward zero at a fixed precision. Read this page before you compare API values with your own arithmetic.
 
-## Precision
+## Read the precision
 
-| Field type | Decimals | Example |
+| Field type | Decimals | Examples |
 |---|---|---|
-| Money (`pnl`, `volume`, `size_usd`) | 2 | `7532409.67` |
-| Scores (`score`, `suspicion_score`) | 2 | `97.94` |
-| Rates (`win_rate`, `daily_win_rate`) | 4 | `0.4545` (= 45.45%) |
-| Prices | 4 | `0.8899` |
+| Money | 2 | `pnl.total`, `size_usd`, `total_volume`, `net_flow_usd` |
+| Scores | 2 | `score` |
+| Rates | 4 | `win_rate`, `daily_win_rate` |
+| Prices | 4 | `price`, `avg_price`, candle `o`, `h`, `l`, `c` |
+| Trade signal | 4 | `signal_score`, `recorded_signal_score` |
 
-## Truncated, not rounded
+Truncation moves toward zero. `97.9488` becomes `97.94`. `-12.345` becomes `-12.34`.
 
-`97.9488...` becomes `97.94`. `-12.345` becomes `-12.34`. Truncation moves toward zero.
+`quant_metrics` values pass through from the computed row without truncation.
 
-For accounting precision, compute from source data. API values are display-safe.
+To reconcile money exactly, compute from source data. API values are display-safe.
 
-## Integer fields
+## Read the integer fields
 
 These fields are exact integers:
 
-- `markets_traded`
-- `rank`
-- `whale_trade_count`
+- `markets_traded`, `rank`, `whale_trade_count`, `smart_count`
+- `suspicion_score` on a whale trade
+- `event_leg_count` on a large position
+- `spread_bps` on a market snapshot
 
-## Nulls and `unavailable`
+`suspicion_score` on an insider-radar flag is a number, not an integer.
 
-Treat nullable fields such as `strategy_type` and `best_category` as nullable on every response.
+## Read the exact-decimal strings
 
-Builder endpoints can return trust metadata with `unavailable` or `partial`. Do not convert these values to `0`, `[]`, or `{}`. Read the metadata.
+Counterparty pages return `filled_shares` and `filled_usdc` as decimal strings. Parse them with a decimal type, not a float.
+
+## Read the display twins
+
+[Pick of the Day](/api-reference/endpoint/get-pick-of-the-day) payloads carry pre-formatted strings beside the source numbers. The number is the source value. The string is for display only.
+
+| Source field | Display twin | Format |
+|---|---|---|
+| `backed_price` | `odds_display` | Cents to one decimal, `"62.0c"`. Never rounded to a whole cent. |
+| `return_per_100` | `payout_display` | Gross USD, `"$161.29"` |
+| `return_per_100` | `profit_display` | Signed net USD, `"+$61.29"` |
+| `outcome` | `outcome_display` | `"Win"`, `"Loss"`, `"Void"`, `"Pending"` |
+| `unit_score` | `unit_score_display` | Signed units, `"+1.24u"` |
+| `clv_pct` | `clv_display` | Signed percent, `"+10.0%"` |
+| `hit_rate.net_profit_usd` | `net_profit_display` | Signed whole dollars, `"+$100"` |
+| `hit_rate.roi_pct` | `roi_display` | Signed, one decimal, `"+8.3%"` |
+| `hit_rate.pct` | `win_rate_display` | One decimal, `"92.3%"` |
+| `hit_rate.clv_avg_pct` | `clv_avg_display` | Signed percent |
+| `hit_rate` coverage | `clv_coverage_display` | Percent of applicable picks with a measured CLV |
+
+- A display twin is present exactly when its source field is present.
+- `net_profit_display` and `roi_display` round, then sign. A value that rounds to zero reads `"+$0"` or `"+0.0%"`.
+- No other endpoint returns display twins.
+
+## Handle null and unavailable
+
+- A nullable field is `null` on any response. `strategy_type`, `grade`, `streak_tier`, and every `pnl` and `stats` value are nullable.
+- `null` in `quant_metrics` means insufficient history. Do not convert it to `0`.
+- With `expand=trust`, an `unavailable` or `partial` status marks a value you must not replace with `0`, `[]`, or `{}`. See [Trust metadata](/concepts/trust-metadata).
+
+## Related
+
+[Pagination](/concepts/pagination) explains the list envelope that carries these values.

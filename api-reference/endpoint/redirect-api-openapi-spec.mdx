@@ -3,20 +3,18 @@ title: "Redirect OpenAPI Spec"
 openapi: "GET /api/v1/openapi.json"
 ---
 
-Resolve the canonical OpenAPI document from the API origin.
+Resolve the canonical OpenAPI document from the API origin. Use it in code generation or docs tools that start from `api.0xinsider.com`.
 
-## Use this endpoint when
+## Read the redirect
 
-Use this endpoint in code generation or docs tooling that starts from the API origin.
-
-The API redirects to `https://0xinsider.com/api/v1/openapi.json`. The web origin owns the document.
+- The response is `307` with `Location: https://0xinsider.com/api/v1/openapi.json`. The web origin owns the document.
+- No key is needed.
+- Follow the redirect with `curl -L`, or read `Location` and fetch that URL.
 
 ```bash
 curl -I "https://api.0xinsider.com/api/v1/openapi.json"
 ```
 
-Use the `Location` header as the OpenAPI URL for code generation and docs tooling.
+## Related
 
-## Example: refresh a generated client
-
-Follow the redirect, fetch the returned document, and pin the document version in your build.
+[Get API Discovery](/api-reference/endpoint/get-api-discovery) returns the same URL as `openapi_url`.

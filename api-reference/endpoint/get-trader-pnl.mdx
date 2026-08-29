@@ -3,21 +3,27 @@ title: "Get Trader P&L"
 openapi: "GET /api/v1/trader/{address}/pnl"
 ---
 
-A trader's daily P&L series and period statistics come from the `daily_pnl` read model. The response includes daily, monthly, yearly, and drawdown data.
+Get a trader's daily P&L series with period stats, monthly totals, yearly totals, and drawdown. Use it to draw an equity curve or to compare fixed periods.
 
-## Use this endpoint when
+## Read the series
 
-Use this endpoint to draw a trader performance chart or compare fixed periods.
-
-`{address}` accepts a `0x...` wallet address, a username, or a `trd_`-prefixed trader id.
+- `address` accepts a `0x...` wallet address, a username, or a `trd_`-prefixed trader ID.
+- `entries` is oldest first. Each point has `date` and `daily_change`, plus nullable `cumulative_profit`, `total_pnl`, `markets_traded`, and `total_volume`.
+- `stats` has `all`, `d90`, `d30`, and `d7`. Each period carries `current`, `change`, `change_pct`, `best_day`, `worst_day`, `win_days`, `loss_days`, `avg_day`, and `rebase_anchor`.
+- `monthly` and `year_totals` aggregate per month and per year. `drawdown` is the underwater series.
+- `freshness_at` is when the `daily_pnl` read model was last rebuilt for this trader. It is `null` when it was never rebuilt.
+- The series comes from the precomputed read model, not a per-request replay. It spans both providers where the read model has data.
+- A known trader with no daily P&L returns `200` with empty arrays. An unknown address returns `404`.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/trader/0x863134d00841b2e200492805a01e1e2f5defaa53/pnl"
 ```
 
-A resolved trader with no daily P&L returns an empty structured object with `200`. An unknown address returns `404`. The series covers both providers when the read model has data.
+## Cache the series
 
-## Example: draw a performance chart
+The response carries an `ETag`. Send it as `If-None-Match` to get `304 Not Modified` when the series is unchanged.
 
-Plot the daily cumulative series. Use the period statistics for summary cards and the drawdown series for risk context.
+## Related
+
+[Get Trader](/api-reference/endpoint/get-trader) returns the headline `pnl` totals and the grade.

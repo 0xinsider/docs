@@ -3,27 +3,26 @@ title: "Smart Money Flows"
 openapi: "GET /api/v1/markets/smart-money-flows"
 ---
 
-Rank markets by graded trader flow. The endpoint aggregates S, A, and B grade whale activity and sorts by absolute net flow.
+Deprecated alias of [Sharp Money Flows](/api-reference/endpoint/sharp-money-flows). The route stays live and returns the same bytes. Use Sharp Money Flows for a new integration.
 
-## Use this endpoint when
+## Read the alias
 
-Use this endpoint for market discovery before you have a `condition_id`. Use [Get Market Intel](/api-reference/endpoint/get-market-intel) after you choose a market.
+- The parameters, the payload, and the `ETag` are the same as Sharp Money Flows. Both paths run one handler.
+- Each row carries `sharp_money` (canonical) and `smart_money` (deprecated, identical).
+- The response has no `Deprecation` or `Sunset` header. This page is the only notice.
+- Remote MCP exposes the route as `get_smart_money_flows` next to the canonical `get_sharp_money_flows`.
 
-Common filters:
+## Migrate to the canonical route
 
-- `timeframe=24h` — lookback window (`1h`, `4h`, `24h`, or `7d`).
-- `min_grade=B` — minimum trader grade in the flow. The default `B` means S, A, and B graded traders only.
-- `platform=polymarket` or `platform=kalshi`.
-- `direction=YES` or `direction=NO` — restrict to one side of the flow.
-- `category=crypto` — case-insensitive exact match against the provider-backed market category.
+1. Replace the path with `/api/v1/markets/sharp-money-flows`.
+2. Read `sharp_money` instead of `smart_money`.
+3. Keep every query parameter. The names and values are identical.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/markets/smart-money-flows?timeframe=7d&min_grade=B&limit=10"
 ```
 
-The response uses cursor pagination. The cursor stays anchored to the first page's `as_of` timestamp. See [Pagination](/concepts/pagination).
+## Related
 
-## Example: find markets with 24-hour flow
-
-Request `timeframe=24h`, `min_grade=B`, and `limit=10`. Open the highest-flow result with Market Intel.
+[Sharp Money Flows](/api-reference/endpoint/sharp-money-flows) documents the fields, the sort, and the cursor.

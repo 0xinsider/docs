@@ -3,19 +3,32 @@ title: "Get Whale Trade"
 openapi: "GET /api/v1/whale-trades/{id}"
 ---
 
-Get one whale trade by ID. Use the raw ID or the `wt_...` ID from a list or history response.
+Get one whale trade by ID with its counterparty analysis. Use this endpoint when a user opens one trade from a feed, an alert, or a report.
 
-## Use this endpoint when
+## Read the trade
 
-Use this endpoint when a user opens one trade from a feed, alert, or report.
+- The trade fields match one item from [Get Whale Trades](/api-reference/endpoint/get-whale-trades).
+- `counterparty_analysis.status` is `available`, `partial`, or `unavailable`. An unavailable analysis carries `unavailable_reason`.
+- `counterparty_analysis.snapshot_id` is the immutable membership snapshot. `analysis_id` binds page cursors to that snapshot.
+- `executions[]` carries `execution_id`, `exchange_family` (`ctf_v2` or `neg_risk_ctf_v2`), `transaction_hash`, the `taker`, and a bounded inline `makers` page.
+- `filled_shares`, `filled_usdc`, and `share_pct` are exact decimal strings. `share_pct` is the participant share of the whole execution, 0 through 100.
+- `executions_next_cursor` and each `makers_next_cursor` are null when the inline page is complete.
+
+## Handle the trade ID
+
+1. Pass the raw `whale_alerts.id` integer or the `wt_` ID from a list response.
+2. An `rf_`, `trd_`, or `mkt_` prefix, or a non-integer value, returns `400 bad_request` with `error.param="id"`.
+3. A well-formed ID with no visible row returns `404 not_found`.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/whale-trades/wt_123"
 ```
 
-The response is one `whale_trade` envelope with the same item shape as [Get Whale Trades](/api-reference/endpoint/get-whale-trades).
+## Cache the trade
 
-## Example: open an alert detail
+The 200 response carries an `ETag`. Send `If-None-Match` to get `304 Not Modified` with an empty body when nothing changed.
 
-Store the `wt_...` ID from the feed. Request this endpoint when the user selects the alert.
+## Related
+
+[Page counterparty executions](/api-reference/endpoint/get-whale-trade-counterparty-executions) continues from `executions_next_cursor`.

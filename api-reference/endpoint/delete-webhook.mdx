@@ -3,11 +3,14 @@ title: "Delete Webhook"
 openapi: "DELETE /api/v1/webhooks/{id}"
 ---
 
-Remove a webhook and invalidate its signing secret. The API sends no more events to that URL.
+Remove a webhook endpoint. The API stops deliveries to it at once.
 
-## Use this endpoint when
+## Delete the endpoint
 
-Use this endpoint when you no longer need a destination. Use `enabled: false` for a temporary pause.
+- The response returns the endpoint with `status: "disabled"`.
+- [List Webhooks](/api-reference/endpoint/list-webhooks) omits the endpoint. [Get Webhook](/api-reference/endpoint/get-webhook) returns `404` for its `id`.
+- Every queued delivery moves to `dead_letter`.
+- Deletion is permanent. Create a new endpoint to resume.
 
 ```bash
 curl -X DELETE \
@@ -16,10 +19,11 @@ curl -X DELETE \
   "https://api.0xinsider.com/api/v1/webhooks/42"
 ```
 
-To pause delivery without deleting the registration, [update](/api-reference/endpoint/update-webhook) it with `enabled: false`.
+## Handle the Idempotency-Key 409
 
-Send `Idempotency-Key` when you retry a delete. A matching retry returns the original response.
+1. On `409` with `error.reason="idempotency_in_progress"`, keep the same key.
+2. Wait a few seconds, then send the same request again.
 
-## Example: remove a retired staging hook
+## Related
 
-Delete the webhook ID after you remove its URL from your deployment configuration.
+[Update Webhook](/api-reference/endpoint/update-webhook) with `enabled: false` stops deliveries but keeps the endpoint.

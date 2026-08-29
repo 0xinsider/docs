@@ -1,45 +1,44 @@
 ---
 title: "Expanding Responses"
-description: "Request strategy, quant, category, or trust fields with expand."
+description: "Request strategy, categories, quant_metrics, or trust fields with the expand parameter."
 ---
 
-Trader responses are small by default. Use `expand` for strategy, category performance, quant metrics, or trust metadata.
+`expand` adds heavy fields to a trader or market snapshot response. Use it only for the fields your screen reads, because an expanded request skips the response cache.
 
-Expanded fields read fresh and make a heavier request. Ask only for fields your screen uses.
+## Pass the parameter
 
-## How to pass it
-
-`expand` accepts a comma-separated list or repeated keys:
+The parser accepts three forms. Mix them freely.
 
 ```bash
 # Comma-separated
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/trader/0x204f...?expand=strategy,categories"
+  "https://api.0xinsider.com/api/v1/trader/swisstony?expand=strategy,categories"
 
-# Repeated bracket form
+# Repeated key
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/trader/0x204f...?expand[]=strategy&expand[]=trust"
+  "https://api.0xinsider.com/api/v1/trader/swisstony?expand=strategy&expand=trust"
+
+# Bracket alias
+curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
+  "https://api.0xinsider.com/api/v1/trader/swisstony?expand[]=strategy&expand[]=trust"
 ```
 
-Unknown values are ignored.
+- An unknown value is ignored.
+- A malformed percent-encoded value returns `400` with `error.param="expand"`.
+- A field you did not expand is absent from the response, not `null`.
 
-## The four expand values
+## Choose a trader expand value
 
 These values work on [`GET /api/v1/trader/{address}`](/api-reference/endpoint/get-trader) and [`POST /api/v1/traders/batch`](/api-reference/endpoint/batch-get-traders):
 
-| Value | Adds field | What it contains |
+| Value | Adds field | Content |
 |---|---|---|
-| `strategy` | `strategy` | The trader's ML strategy classification: `strategy_type`, an optional `description`, and `confidence`. See [Strategy types](/concepts/strategy-types). |
-| `categories` | `category_strengths` | Per-category performance, keyed by category: rank within the category, total P&L, markets traded, wins, losses, and win rate. |
-| `quant_metrics` | `quant_metrics` | A fixed set of nine curated risk and performance metrics, including the `smart_score` and `copy_score` headline scores. See [Quant metrics](/concepts/quant-metrics). |
-| `trust` | `trust` | Field-level [trust metadata](/concepts/trust-metadata): source, freshness, reconciliation, and completeness for each derived field. |
+| `strategy` | `strategy` | `strategy_type`, a nullable `description`, and `confidence`, which is always `null`. See [Strategy types](/concepts/strategy-types). |
+| `categories` | `category_strengths` | An object keyed by category. Each value carries `rank`, `total_in_category`, `total_pnl`, `n_markets`, `wins`, `losses`, and `win_rate`. |
+| `quant_metrics` | `quant_metrics` | Nine risk and performance numbers, present only when the computed row is under six hours old. See [Quant metrics](/concepts/quant-metrics). |
+| `trust` | `trust` | Source, freshness, reconciliation, and completeness for 17 fields. See [Trust metadata](/concepts/trust-metadata). |
 
-## Example: add strategy data
-
-```bash
-curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/trader/0x204f...?expand=strategy"
-```
+`strategy` runs 16 parallel queries and adds about 200 ms.
 
 ```json
 {
@@ -57,13 +56,28 @@ curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
 }
 ```
 
-## Market snapshots
+## Expand a batch
 
-[`GET /api/v1/market/{condition_id}/snapshot`](/api-reference/endpoint/get-market-snapshot) accepts only `expand=trust`. It adds trust metadata for `current_price` and `spread_bps`.
+The batch body carries one `expand` array for every trader. Supply 1 to 25 traders.
 
-## Cost
+```bash
+curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
+  -X POST "https://api.0xinsider.com/api/v1/traders/batch" \
+  -H "Content-Type: application/json" \
+  -d '{"traders": ["swisstony", "0x0000000000000000000000000000000000000000"], "expand": ["strategy"]}'
+```
 
-Expanded requests are heavier than plain requests. Keep them cheap:
+Use the batch for many traders instead of one expanded request per trader.
 
-- Request only the fields you use.
-- Use [`POST /api/v1/traders/batch`](/api-reference/endpoint/batch-get-traders) for many traders instead of one expanded request per trader.
+## Expand a market snapshot
+
+[`GET /api/v1/market/{condition_id}/snapshot`](/api-reference/endpoint/get-market-snapshot) accepts `expand=trust` only. It adds `trust.current_price` and `trust.spread_bps`.
+
+```bash
+curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
+  "https://api.0xinsider.com/api/v1/market/0x123.../snapshot?expand=trust"
+```
+
+## Related
+
+[Trust metadata](/concepts/trust-metadata) explains the object that `expand=trust` adds.

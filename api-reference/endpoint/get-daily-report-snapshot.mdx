@@ -3,19 +3,22 @@ title: "Get Daily Report Snapshot"
 openapi: "GET /api/v1/reports/daily"
 ---
 
-Get one daily recap for a date. It includes top traders, large whale trades, and smart-money rotations.
+Get the whale-activity report for one UTC date. Use this endpoint for a daily email, a Slack brief, or a "what happened yesterday" panel.
 
-## Use this endpoint when
+## Read the report
 
-Use this endpoint for a daily email, Slack brief, or “what happened yesterday?” panel.
+- `date` is required, in `YYYY-MM-DD`.
+- `report.total_whale_trades`, `total_whale_volume`, `biggest_trade_size`, and `active_traders` describe the date.
+- `report.top_whale_trades` holds at most 50 rows.
+- `snapshot.status` is `final` for a past date and `rolling` for today.
+- `completeness.status` is `complete`, `partial`, or `empty`. A date with no whale rows returns `200` with `empty`.
+- `snapshot.version` never changes for a closed period. A rolling period can get a new version after each refresh. Use it as a cache key.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/reports/daily?date=2026-05-08"
 ```
 
-Use [Weekly](/api-reference/endpoint/get-weekly-report-snapshot) or [Monthly](/api-reference/endpoint/get-monthly-report-snapshot) for longer windows. Read trust metadata before you show a partial or unavailable section.
+## Related
 
-## Example: send a morning brief
-
-Request the previous UTC date at a fixed time. Cache the snapshot and include its `generated_at` value in the brief.
+[Get Weekly Report Snapshot](/api-reference/endpoint/get-weekly-report-snapshot) and [Get Monthly Report Snapshot](/api-reference/endpoint/get-monthly-report-snapshot) cover longer ranges.

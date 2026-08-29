@@ -3,19 +3,21 @@ title: "Get Weekly Report Snapshot"
 openapi: "GET /api/v1/reports/weekly"
 ---
 
-Get a weekly recap with top movers, sustained flows, and leaderboard changes.
+Get the whale-activity report for one ISO week or one date range. Use this endpoint for a weekly email, a dashboard, or a research review.
 
-## Use this endpoint when
+## Choose the range
 
-Use this endpoint for a weekly email, dashboard, or research review.
+- `week` takes an ISO week in `YYYY-WW`. The range runs Monday to Sunday.
+- `from` and `to` take a `YYYY-MM-DD` pair. Send both or neither.
+- A request with neither form returns `400` with `error.param="from"`.
+- `report.top_whale_trades` holds at most 100 rows.
+- `snapshot.status` is `final` when the range ended before today. Otherwise it is `rolling` and can still change.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/reports/weekly?week_of=2026-05-04"
+  "https://api.0xinsider.com/api/v1/reports/weekly?week=2026-19"
 ```
 
-`week_of` accepts any date inside the target week. The response matches the [daily report](/api-reference/endpoint/get-daily-report-snapshot) shape.
+## Related
 
-## Example: build a weekly digest
-
-Choose one date from the target week. Read the trust fields before you mark a section complete.
+[Get Reports](/api-reference/endpoint/get-reports) returns the same body through one `granularity` selector.

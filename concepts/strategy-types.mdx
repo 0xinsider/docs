@@ -1,36 +1,36 @@
 ---
 title: "Strategy Types"
-description: "Filter traders by the strategy type inferred from fill history."
+description: "Read the ten strategy_type labels, their decision rules, and the null case."
 ---
 
-Strategy type describes how a trader trades. It adds context to the grade.
+`strategy_type` is one of ten labels that describe how a Polymarket trader trades. Use it to filter and compare traders, not to predict results.
 
-The label comes from fill history. Use it to filter and compare traders, not to predict future results.
+## Read the ten labels
 
-## The ten strategy types
+A decision tree tests the trader's fill history in this order and stops at the first match:
 
-| Strategy type | What it describes |
+| `strategy_type` | Rule that assigns it |
 |---|---|
-| `arbitrageur` | Trades both sides to capture pricing gaps, often near-riskless. |
-| `market_maker` | Provides liquidity on both sides, earning the spread. |
-| `scalper` | Many small, fast trades for small per-trade edges. |
-| `algo_trader` | Systematic, high-frequency patterns consistent with automation. |
-| `accumulator` | Builds large positions over time, usually on one side. |
-| `swing_trader` | Holds directional positions across days, not minutes. |
-| `event_driven` | Concentrates around specific events or resolutions. |
-| `momentum` | Follows price and flow, adding as a move continues. |
-| `directional` | Takes a clear side on an outcome and holds it. |
-| `speculator` | Opportunistic, mixed style with no single dominant pattern. |
+| `arbitrageur` | Holds both sides in many markets at a measured pair cost below parity. |
+| `market_maker` | Trades both YES and NO in over 40 percent of markets, with over 45 percent of fills on a whole cent. A high-frequency route with the same whole-cent pattern also matches. |
+| `event_driven` | Concentrates capital and market type in a small set of markets. |
+| `accumulator` | Buys large average sizes with many trades per market and a high win rate, or holds paired both-side positions over a long span. |
+| `scalper` | Under half of fills on a whole cent, with short first-to-last spans. |
+| `algo_trader` | High frequency, half or more of fills on a whole cent, and neither market-maker rule. |
+| `swing_trader` | Mid-range average hold time, fewer markets, and few trades per market. |
+| `momentum` | Consistent edge, a positive alpha t-statistic, and a positive scalability slope. |
+| `directional` | Fallback when no rule above matches. |
+| `speculator` | Reclassification after the tree: a statistically significant loser with no consistent edge. `arbitrageur` and `accumulator` are exempt. |
 
-## Use it in the API
+Whole-cent fill share is a price pattern, not an order-type count. The rules do not establish intent.
 
-The classification shows up in two places:
+## Request the label on a trader
 
-Request it on a trader profile with `expand=strategy`:
+Pass `expand=strategy` to [`GET /api/v1/trader/{address}`](/api-reference/endpoint/get-trader) or [`POST /api/v1/traders/batch`](/api-reference/endpoint/batch-get-traders):
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/trader/0x204f...?expand=strategy"
+  "https://api.0xinsider.com/api/v1/trader/swisstony?expand=strategy"
 ```
 
 ```json
@@ -43,19 +43,28 @@ curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
 }
 ```
 
-`strategy_type` is the label. `description` and `confidence` can be `null`.
+- `strategy_type` is the label.
+- `description` is a stored text and can be `null`.
+- `confidence` is always `null` on this API.
+- The `strategy` object is absent when you did not expand it or no classification exists.
 
-Pass `strategy` to [`GET /api/v1/leaderboard`](/api-reference/endpoint/get-leaderboard) to rank one style:
+## Filter the leaderboard
+
+Pass `strategy` to [`GET /api/v1/leaderboard`](/api-reference/endpoint/get-leaderboard). A value outside the ten labels returns `400` with `error.param="strategy"`.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/leaderboard?strategy=arbitrageur&limit=20"
 ```
 
-Leaderboard entries include `strategy_type`, so no extra expand is needed there.
+Each leaderboard entry carries `strategy_type` without an expand. It is `null` when no classification exists.
 
-## Notes
+## Handle a null label
 
-- Treat `strategy_type` as a string. New labels can appear.
-- Strategy classification is Polymarket-only. See [Platforms](/concepts/platforms).
-- A trader with too little history may have no classification yet; the `strategy` object is absent until enough fills exist to classify.
+A trader with too little history has no label. Keep the trader unless your workflow needs the label. Do not map `null` to `directional`.
+
+Classification is Polymarket-only. The [platform matrix](/concepts/platforms) reports `strategy: "unsupported"` for Kalshi.
+
+## Related
+
+[Grades](/concepts/grades) explains the quality letter that sits beside the strategy label.

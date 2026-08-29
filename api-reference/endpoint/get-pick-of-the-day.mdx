@@ -8,7 +8,7 @@ Get the ranked picks for the current product day. Use this endpoint in a daily b
 ## Read the picks
 
 - `picks` is ordered by `pick_rank`. A thin day returns fewer picks, never filler.
-- `backed_price` and `return_per_100` are frozen before kickoff. `game_started` is `true` once the kickoff has passed.
+- `backed_price` and `return_per_100` are frozen before kickoff. `game_started` is `true` after the kickoff.
 - `sharp_pct`, `market_pct`, and `consensus_edge_pct` show conviction. They do not promise profit.
 - `outcome` is `pending`, `win`, `loss`, or `void`.
 - `scheduled_picks` lists slots selected for later today. Each slot has only `pick_rank`, `release_at`, and `kickoff`. Schedule the next read from the earliest `release_at`.

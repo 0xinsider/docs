@@ -3,23 +3,30 @@ title: "Batch Get Traders"
 openapi: "POST /api/v1/traders/batch"
 ---
 
-Get up to 25 trader profiles in one request. Each item matches [Get Trader](/api-reference/endpoint/get-trader).
+Get up to 25 trader profiles in one request. Use it when a leaderboard page, an alert, or a follow list holds several traders.
 
-## Use this endpoint when
+## Read the batch
 
-Use this endpoint when a leaderboard, alert, or follow list contains several wallets. It avoids one request per trader.
+- `traders` holds 1 to 25 identities: wallet addresses, usernames, or `trd_`-prefixed IDs. `expand` applies to every item and takes the same values as [Get Trader](/api-reference/endpoint/get-trader).
+- `data` keeps request order. A duplicate input returns a duplicate row.
+- Each item has `index`, `input`, and `status`. `status` is `ok` with a `data` profile, or `error` with an `error` object (`code`, `message`, `param`).
+- An unknown trader is `ok` with `sync_status: "unknown"`, the same as the single endpoint. A blank item is an `error` with `code: "bad_request"`.
+- `meta.total_items`, `meta.successful_items`, and `meta.failed_items` count the rows. The HTTP status stays `200` when an item fails.
+- Each item costs one batch unit. `meta.request_cost` and the `X-Request-Cost` header show the charge. `X-Batch-RateLimit-Remaining` shows the units left.
+
+## Handle a rejected batch
+
+1. An empty `traders` array, or more than 25 items, returns `400` for the whole request. Split the list before you send it.
+2. The batch quota is reserved for every item before execution. An over-quota request returns `429` and runs no item.
+3. Read `Retry-After`, wait that many seconds, then send the same batch again.
 
 ```bash
-curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
+curl -X POST -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"traders": ["0xabc...", "0xdef...", "swisstony"]}' \
+  -d '{"traders": ["0x863134d00841b2e200492805a01e1e2f5defaa53", "swisstony"], "expand": ["strategy"]}' \
   "https://api.0xinsider.com/api/v1/traders/batch"
 ```
 
-Read `data[i].error` for every item. The top-level status stays `200` when one trader fails.
+## Related
 
-Each item costs one batch unit. A 25-trader request costs 25 units. See [Rate Limits](/rate-limits).
-
-## Example: enrich a follow list
-
-Send the wallet addresses from your leaderboard result. Keep successful profiles and record item errors for later retry.
+[Get Trader](/api-reference/endpoint/get-trader) returns one profile with an `ETag`. See [Rate limits](/rate-limits) for the batch unit budget.

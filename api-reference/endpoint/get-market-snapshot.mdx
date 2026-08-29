@@ -3,23 +3,38 @@ title: "Get Market Snapshot"
 openapi: "GET /api/v1/market/{condition_id}/snapshot"
 ---
 
-Get the current state of one market: price, volume, status, and recent activity. Request `expand=trust` to receive trust metadata for `current_price` and `spread_bps`.
+Get one provider-first market card: identity, outcome labels, top of book, liquidity, live sports context, and freshness. Use this endpoint to render or refresh one market card.
 
-## Use this endpoint when
+## Read the snapshot
 
-Use this endpoint to render one market page or refresh one market card.
+- `market.provider` is `polymarket` or `kalshi`. `market.status` is `active` or `closed`.
+- `outcomes` has one entry per side. Each carries `side` (`yes` or `no`), `label`, `token_id`, `current_price`, and `top_of_book`.
+- `top_of_book.status` is `available` or `unavailable`. An `unavailable` entry carries `reason` and null prices.
+- `liquidity.last_price` is Kalshi only. It is always null for Polymarket markets.
+- `freshness.market_data.status` is `stale` when the provider refresh is older than 24 hours. `stale_after_s` is `86400` and `reason` is `provider_refresh_older_than_24h`.
+- `sports.status` is `fresh`, `stale`, `not_live`, or `unavailable`. An `unavailable` or `not_live` state carries `reason`.
+- `market.series_slug` is null for most markets. For Polymarket it names a league, not one matchup.
+- A null or `unavailable` value means the provider fact is absent. Do not replace it with `0`.
 
-Pass the raw provider-backed `condition_id` or a `mkt_...` market ID from a V1 response.
+## Handle the market ID
 
-Add `expand=trust` when your UI must gate `current_price` or `spread_bps` on trust metadata.
+1. Pass the raw `condition_id` from search or explore, or the `mkt_` market ID from any V1 response.
+2. A `trd_`, `wt_`, or `rf_` prefix returns `400 bad_request` with `error.param="condition_id"`.
+3. An unknown market returns `404 not_found`.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/market/0xabc.../snapshot?expand=trust"
+  "https://api.0xinsider.com/api/v1/market/0x123.../snapshot?expand=trust"
 ```
 
-If a field is `unavailable`, treat it as missing. Do not change it to `0`. See [Trust metadata](/api-reference/introduction#trust-metadata).
+## Expand the trust block
 
-## Example: refresh one market card
+`trust` appears only with `expand=trust` or `expand[]=trust`. It covers `current_price` and `spread_bps` with `source`, `freshness`, `reconciliation`, and `completeness`. See [Trust Metadata](/concepts/trust-metadata).
 
-Read the snapshot, show the current price only when its trust metadata supports it, and label unavailable values as unavailable.
+## Cache the snapshot
+
+The 200 response carries an `ETag`. Send `If-None-Match` to get `304 Not Modified` with an empty body when nothing changed.
+
+## Related
+
+[Get Market Candles](/api-reference/endpoint/get-market-candles) returns the daily price series for the same market.

@@ -3,19 +3,43 @@ title: "Get Sports Edge Signals"
 openapi: "GET /api/v1/sports-edge-signals"
 ---
 
-List upcoming pre-game sports markets where graded smart money favors one side. Each signal includes the side, CLOB token, grade counts, dollar concentration, kickoff time, and conviction score.
+List pre-game Polymarket sports markets where graded (S, A, B) sharp money is piled on one side. Use this endpoint to rank games before kickoff. It needs the Pro plan.
 
-## Use this endpoint when
+## Read the signals
 
-Use this endpoint to rank sports markets before a game starts. The response gives you the signal data in one call.
+- `rank` is 1-based within the `min_grade`-filtered result. The order is `directional_rank_score`, highest first, then `conviction_score`, `smart_score`, and `condition_id`.
+- `directional_rank_score` is `conviction_score * (1 + 0.25 * directional_confidence)`. `conviction_score` is `(5*s + 4*a + 3*b) * sharp_pct`.
+- `piled_side` is the provider display label for the piled outcome. `piled_outcome_index` selects the provider column: `0` for YES, `1` for NO. `token_id` is the CLOB token for that outcome. Do not read `piled_side` alone as a team identity.
+- `sharp_pct` is the piled-side dollar share in `(0.5, 1]`. `backed_sharp_usd` is the raw piled-side USD.
+- `s_count`, `a_count`, `b_count`, `graded_holders`, and `top_grade` describe the piled-side holders.
+- `signal_created_at` is the snapshot compute time. Every row from one snapshot shares it. It is not request time.
+- `game_start_time` was in the future at snapshot time. The snapshot is cached up to about 180 seconds, so a served kickoff can already be in the past.
+- `one_way_holder_count`, `hedged_holder_count`, `one_way_graded_usd`, and `directional_confidence` are null when the directional read was not computed.
+- `category_skill` is shadow-only evidence. It never changes membership, order, rank, or cursor.
+- `meta.ranking_source` is `live` or `db_only`. `meta.directional_source` is `live` or `degraded`. A degraded snapshot is cached about 30 seconds instead of about 180.
 
-The ranking uses the grade distribution and `sharp_pct`. Markets without a clear side are excluded. The raw fields let you rank the list again.
+## Filter the list
 
-## Example: build a pre-game list
+- `category` accepts a canonical sport bucket such as `Basketball`, `Tennis`, or `Soccer`. A raw provider value such as `NBA` resolves to its bucket. A non-sport category returns an empty list.
+- `horizon_hours` is 1 to 48 with a default of 12. The floor is now, so only games before kickoff appear.
+- `min_grade` accepts `S`, `A`, or `B` (default). `A` requires an S or A holder on the piled side. `C`, `D`, and `F` return `400`.
+- `limit` is 1 to 100 with a default of 20.
+
+## Handle the expired cursor
+
+1. Read `error.reason` on a `400`. `cursor_expired` with `error.param="cursor"` means the ranking snapshot behind the cursor refreshed.
+2. Request the first page again and walk forward. Do not wait; there is no `Retry-After`.
+3. A `400` without `error.reason` is an invalid parameter. Read `error.param`.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/sports-edge-signals"
+  "https://api.0xinsider.com/api/v1/sports-edge-signals?category=Basketball&horizon_hours=12&min_grade=B&limit=10"
 ```
 
-Show the returned kickoff time and side. Treat the signal as research data, not a guaranteed result.
+## Cache the signals
+
+The 200 response carries an `ETag`. Send `If-None-Match` to get `304 Not Modified` with an empty body when nothing changed.
+
+## Related
+
+[Get Sports Edge Observations](/api-reference/endpoint/get-sports-edge-observations) measures the observation-only cohorts outside this funded list.

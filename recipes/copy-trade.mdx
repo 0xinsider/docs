@@ -1,85 +1,134 @@
 ---
 title: "Copy-trade signals"
-description: "Build a follow list and watch for new trades from those wallets."
+description: "Build a follow list of graded wallets and watch their new trades."
 ---
 
-Use this recipe when you want to follow a set of high-grade wallets. It builds a list, enriches it, then watches new trades.
+Build a follow list of S and A wallets and get a signal when one of them trades. 0xinsider reads market data. It places no orders.
 
-All requests need a Bearer key. See [Authentication](/authentication).
+Every request needs a Pro API key. See [Authentication](/authentication).
 
 ## 1. Build the follow list
 
-Read the leaderboard and keep S and A traders. The endpoint has no `min_grade` filter, so filter the result in code.
+[`GET /api/v1/leaderboard`](/api-reference/endpoint/get-leaderboard) lists graded wallets.
+
+- The leaderboard holds S, A, and B wallets only.
+- There is no `min_grade` filter. Filter on `grade` in code.
+- `realized_pnl` is the banked figure. `pnl` includes open positions.
+- `strategy_type` is on each entry. Pass `strategy` to keep one style. See [Strategy types](/concepts/strategy-types).
+- A `400` with `error.reason="cursor_expired"` means the ranking changed. Request page one again.
 
 ```python
-import os, requests
+import os
+
+import requests
 
 BASE = "https://api.0xinsider.com/api/v1"
 H = {"Authorization": f"Bearer {os.environ['OXINSIDER_API_KEY']}"}
 
-leaders = requests.get(f"{BASE}/leaderboard", params={"limit": 100}, headers=H).json()
+leaders = requests.get(
+    f"{BASE}/leaderboard", params={"limit": 100}, headers=H, timeout=30
+).json()
 follow = [t["address"] for t in leaders["data"] if t["grade"] in ("S", "A")]
 ```
-
-To follow one style, pass `strategy` with a [strategy type](/concepts/strategy-types):
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/leaderboard?strategy=swing_trader&limit=50"
 ```
 
-## 2. Enrich the list
+## 2. Score each wallet
 
-Read the full set with [batch](/api-reference/endpoint/batch-get-traders). Add `expand` when strategy or trust affects your choice:
+[`POST /api/v1/traders/batch`](/api-reference/endpoint/batch-get-traders) reads up to 25 wallets in one call. Add `expand: ["quant_metrics"]` to get `copy_score`.
+
+- `traders` takes 1 to 25 items. Split a longer list.
+- `quant_metrics` appears only when a computed row under six hours old exists. Handle a missing key.
+- `copy_score` is 0 to 100. It subtracts penalties for a small sample, concentration, oversized bets, large single losses, and inconsistent edge.
+- `smart_score` is the same base score without those penalties.
+- Each item has its own `status`. One bad wallet does not fail the batch.
 
 ```python
 batch = requests.post(
     f"{BASE}/traders/batch",
-    json={"traders": follow, "expand": ["strategy", "trust"]},
+    json={"traders": follow[:25], "expand": ["quant_metrics"]},
     headers=H,
+    timeout=30,
 ).json()
 
+ranked = []
 for item in batch["data"]:
-    if item["status"] == "ok":
-        t = item["data"]
-        print(t["username"], t["grade"], t["pnl"]["total"], t.get("strategy", {}).get("strategy_type"))
+    if item["status"] != "ok":
+        print("skip:", item["input"], item["error"]["message"])
+        continue
+    t = item["data"]
+    qm = t.get("quant_metrics") or {}
+    ranked.append((qm.get("copy_score"), t["address"], t["username"], t["grade"]))
+
+ranked.sort(key=lambda r: r[0] or 0, reverse=True)
+for score, address, username, grade in ranked:
+    print(score, grade, username or address[:10])
 ```
 
-## 3. Watch for new activity
+## 3. Watch for new trades
 
-Poll the whale-trade feed and keep only followed wallets:
+[`GET /api/v1/whale-trades`](/api-reference/endpoint/get-whale-trades) has no wallet filter. Match `trader.address` in code.
+
+- `min_grade=A` returns S and A wallets.
+- The list is newest first. Deduplicate on `id`.
+- `side` is `BUY` or `SELL`. `outcome` is the traded outcome label and is null on a multi-outcome market.
+- `token_id` names the traded outcome on the Polymarket CLOB. Your own order client needs it.
 
 ```python
-follow_set = set(a.lower() for a in follow)
+follow_set = {a.lower() for a in follow}
+seen = set()
+
 
 def new_moves(min_size=10000):
-    feed = requests.get(
+    page = requests.get(
         f"{BASE}/whale-trades",
         params={"min_grade": "A", "min_size": min_size, "limit": 100},
         headers=H,
+        timeout=30,
     ).json()
-    return [
-        tr for tr in feed["data"]
-        if tr["trader"]["address"].lower() in follow_set
-    ]
+    moves = []
+    for tr in page["data"]:
+        if tr["id"] in seen:
+            continue
+        seen.add(tr["id"])
+        if tr["trader"]["address"].lower() in follow_set:
+            moves.append(tr)
+    return moves
+
 
 for tr in new_moves():
-    print(f'{tr["trader"]["username"]} {tr["side"]} ${tr["size_usd"]:,.0f} @ {tr["price"]} on {tr["market"]["title"]}')
+    who = tr["trader"]["username"] or tr["trader"]["address"][:10]
+    print(
+        who, tr["side"], tr["outcome"], f'${tr["size_usd"]:,.0f}',
+        "@", tr["price"], tr["market"]["title"], tr["token_id"],
+    )
 ```
 
-For push delivery, subscribe to `whale_trades_inserted` and apply the same filter. See [Webhooks](/guides/webhooks).
+For push delivery, subscribe to `whale_trades_inserted` and run the same match. See [Alert bot](/recipes/alert-bot).
 
-## 4. Drill into one market
+## 4. Read the entry and exit history
 
-When a followed trader enters a market, read its entry and exit history with [position timeline](/api-reference/endpoint/get-trader-position-timeline):
+[`GET /api/v1/trader/{address}/position-timeline`](/api-reference/endpoint/get-trader-position-timeline) returns every stored fill for one wallet in one market.
+
+- `condition_id` is required. Take it from `market.condition_id` on the trade.
+- Events are newest first. `running_amount` and `running_avg_price` are computed on the server.
+- `running_avg_price` does not change on a sell.
+- A `404` with `error.reason="trader_not_tracked"` is terminal. Stop the requests for that wallet.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/traders/0x204f.../position-timeline?condition_id=0x123..."
+  "https://api.0xinsider.com/api/v1/trader/0x204f72f35326db932158cba6adff0b9a1da95e14/position-timeline?condition_id=0x123..."
 ```
 
-Each event includes side, price, notional, and running average price.
+## Scope
 
-## What this recipe does not do
+- There is no per-wallet positions endpoint and no per-wallet push channel. Match addresses in code.
+- The timeline exists only for wallets in the active sync tiers.
+- No endpoint places, cancels, or reads an order. Route an order through your own Polymarket client.
 
-There is no per-trader positions endpoint or push channel. Poll the whale-trade feed, use the webhook, and match wallet addresses. Use the timeline after you know the `condition_id`.
+## Related
+
+[Backtest a trader](/recipes/backtest) checks a wallet's P&L curve before you follow it. [Quant metrics](/concepts/quant-metrics) defines `copy_score` and `smart_score`.

@@ -3,15 +3,30 @@ title: "Page maker counterparties"
 openapi: "GET /api/v1/whale-trades/{id}/counterparties/executions/{execution_id}/makers"
 ---
 
-Page the maker wallets on one exact execution of a whale trade.
+Page the maker wallets on one exact execution of a whale trade. Use this endpoint when an execution carries a `makers_next_cursor`.
 
-## Use this endpoint when
+## Read the makers
 
-Use this endpoint when an execution from [Page counterparty executions](/api-reference/endpoint/get-whale-trade-counterparty-executions) carries a `makers_next_cursor`.
+- `snapshot_id` is required. `execution_id` comes from the parent execution.
+- `items[]` carries `counterparty_key`, `execution_wallet`, `identity_status`, `display_name`, `grade`, `maker_fill_count`, `filled_shares`, `filled_usdc`, and `share_pct`.
+- `execution_wallet` is the lowercase Polygon wallet from the `OrderFilled` log. `identity_status` is `resolved`, `infrastructure`, or `unavailable`.
+- `share_pct` keeps the complete execution as its denominator on every page.
+- `match_breakdown[]` splits fills by `match_type`: `COMPLEMENTARY`, `MINT`, or `MERGE`.
+- `next_cursor` is bound to the analysis, the execution, the last share total, and the wallet. It is null on the last page.
+- `limit` is 1 to 100 with a default of 100.
+
+## Handle the snapshot
+
+1. Read `error.reason` on a `400`. `cursor_expired` means the snapshot expired or was invalidated.
+2. Request the trade detail again. Restart from its new `snapshot_id`.
+3. A `404` means the `snapshot_id` is unknown or belongs to another trade.
+4. A `503` with `error.reason="read_model_warming"` means the counterparty runtime is unavailable. Retry this route after `Retry-After`.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/whale-trades/wt_123/counterparties/executions/$EXECUTION_ID/makers?snapshot_id=$SNAPSHOT_ID&limit=50"
 ```
 
-Each maker's percentage keeps the complete execution as its denominator across pages. A changed snapshot returns `400` with `error.reason="cursor_expired"`. Restart from the whale-trade detail.
+## Related
+
+[Page counterparty executions](/api-reference/endpoint/get-whale-trade-counterparty-executions) lists the executions that carry these makers.

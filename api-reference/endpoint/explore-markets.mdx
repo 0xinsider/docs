@@ -3,29 +3,29 @@ title: "Explore Markets"
 openapi: "GET /api/v1/markets/explore"
 ---
 
-Find titled markets with current whale activity. Omit `q` for the full feed or add a keyword.
+Browse whale-active Polymarket markets with status, category, keyword, and sort filters. Use this endpoint when you need a market list before you know a `condition_id`.
 
-## Use this endpoint when
+## Read the entries
 
-Use this endpoint when a user wants to browse active markets before you know a `condition_id`.
+- Each `data` item has `type` set to `group` or `standalone`. A `group` carries `event_slug`, `parent_title`, and up to 12 `markets`. A `standalone` carries one `market`.
+- `market.id` is the `mkt_` market ID. `market.condition_id` is the raw provider ID. Both work on the single-market endpoints.
+- `market.url_slug` is the first-party page slug. `market.slug` is the provider slug.
+- `market.freshness.enrichment_status` and `market.freshness.price_status` are `available` or `unavailable`. Read them before you show a price field.
+- `total` appears on the first page only. Cursor pages omit it.
+- `facets.categories` and `facets.platforms` are `value`, `label`, and `count` rows for the current filter. Facet values are canonical buckets.
+- `computed_at` and `fresh_for_seconds` describe the 60-second explore cache. Remaining freshness is `fresh_for_seconds` minus the age of `computed_at`.
 
-Grouped events return one row per event with a primary market when one exists.
-
-Common filters:
-
-- `q=bitcoin`: keyword search against market titles.
-- `category=crypto`: restrict to a category.
-- `platform=polymarket` or `platform=kalshi`: restrict to one platform.
-- `status=active`: exclude resolved markets.
-- `sort=volume`: sort by recent volume.
+Explore is Polymarket-only. `platform` accepts only `polymarket` and does not change the result. A canonical `category` such as `Basketball` matches every provider member (NBA, WNBA, NCAAB). A raw provider value also resolves to its bucket. `sort` accepts `trending` (default), `hot`, `expiring`, `whales`, `volume`, and `newest`. `limit` is 1 to 48 with a default of 24.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
-  "https://api.0xinsider.com/api/v1/markets/explore?category=crypto&status=active&limit=20"
+  "https://api.0xinsider.com/api/v1/markets/explore?category=Basketball&status=active&sort=whales&limit=24"
 ```
 
-The response uses cursor pagination. See [Pagination](/concepts/pagination).
+## Cache the feed
 
-## Example: build an active-market screen
+The 200 response carries an `ETag`. Send `If-None-Match` to get `304 Not Modified` with an empty body when the payload is unchanged. `computed_at` and `fresh_for_seconds` are excluded from the validator, so a recomputed body with identical data keeps its ETag.
 
-Request `category=crypto&status=active`, render the returned titles, and pass each returned market ID to [Get Market Snapshot](/api-reference/endpoint/get-market-snapshot).
+## Related
+
+[Search Markets](/api-reference/endpoint/search-markets) finds a market by keyword across Polymarket and Kalshi.
