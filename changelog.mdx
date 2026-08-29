@@ -7,6 +7,14 @@ rss: true
 
 This changelog tracks externally visible REST API changes only. Documentation-only edits are intentionally excluded.
 
+<Update label="August 29, 2026" description="Pick of the Day 404 retry_at now accounts for the live selector rescan">
+  [`GET /api/v1/pick-of-the-day`](/api-reference/endpoint/get-pick-of-the-day) changes how `error.retry_at` and `Retry-After` are chosen on `404 pick_not_released`.
+
+  Before this change the value was the earliest scheduled slot's `release_at`. The selector rescans about every 15 minutes and can add a slot that releases earlier. A client that honored `retry_at` slept past that pick. On August 29 the value read 16:15 UTC while a slot added at 11:15 UTC released at 12:30 UTC.
+
+  The value is now the earliest of the next scheduled release and the next selector attempt, while the selector still scans the day. Expect more `404` responses on a busy day, about 15 minutes apart, until the first pick releases. The response shape is unchanged. A client that schedules from `retry_at` needs no change.
+</Update>
+
 <Update label="August 19, 2026" description="Pick of the Day announces same-day picks that have not dropped yet">
   [`GET /api/v1/pick-of-the-day`](/api-reference/endpoint/get-pick-of-the-day) adds `scheduled_picks`: the day's selected picks that have not released yet, in `pick_rank` order.
 

@@ -3,30 +3,38 @@ title: "Get Pick of the Day"
 openapi: "GET /api/v1/pick-of-the-day"
 ---
 
-Get the current Pick of the Day. The endpoint returns the full pick for a key with the required subscription.
+Get the ranked picks for the current product day. Use this endpoint in a daily brief, a bot, or a research workflow.
 
-## Use this endpoint when
+## Read the picks
 
-Use this endpoint to show the current pick in a daily brief or research workflow.
-
-The response includes the backed side, pre-game price, $100 return, smart-money holders, grade edge, and thesis.
-
-- `backed_price` and `return_per_100` are fixed before kickoff.
-- `sharp_pct`, `market_pct`, and `consensus_edge_pct` show conviction. They do not guarantee profit.
+- `picks` is ordered by `pick_rank`. A thin day returns fewer picks, never filler.
+- `backed_price` and `return_per_100` are frozen before kickoff. `game_started` is `true` once the kickoff has passed.
+- `sharp_pct`, `market_pct`, and `consensus_edge_pct` show conviction. They do not promise profit.
 - `outcome` is `pending`, `win`, `loss`, or `void`.
+- `scheduled_picks` lists slots selected for later today. Each slot has only `pick_rank`, `release_at`, and `kickoff`. Schedule the next read from the earliest `release_at`.
 - `sports_context` appears only for team-sports picks.
-- The endpoint returns `404` with `error.reason="pick_not_released"` when no pick is published.
 
 ```bash
 curl -H "Authorization: Bearer $OXINSIDER_API_KEY" \
   "https://api.0xinsider.com/api/v1/pick-of-the-day"
 ```
 
-The response is side-effect-free and ETag-cacheable. Send `If-None-Match` for `304 Not Modified` when the pick is unchanged.
-For `404`, schedule one request from `Retry-After` or `error.retry_at`. Do not poll.
+## Handle the 404
 
-For the full track record and rolling hit rate, see [Get Pick of the Day track record](/api-reference/endpoint/get-pick-of-the-day-archive).
+The endpoint returns `404` with `error.reason="pick_not_released"` until the first pick of the day releases. This is the schedule, not an outage.
 
-## Example: show one daily pick
+1. Read `Retry-After` (seconds) or `error.retry_at` (RFC3339).
+2. Schedule one request for that instant with a cron job, a queue, or a timer.
+3. Return. Do not sleep a worker thread and do not loop.
 
-Request the endpoint once per report window. If it returns `404`, show that no pick is published instead of using an older pick.
+`retry_at` is the earliest instant the answer can change. That is the next scheduled release, or the next selector attempt while the selector can still add an earlier slot. Each wake without a pick returns a new `retry_at`.
+
+Do not fall back to an older pick on a `404`. Show that no pick is published yet.
+
+## Cache the pick
+
+The response is ETag-cacheable. Send `If-None-Match` to get `304 Not Modified` when nothing changed. A new pick release changes the ETag.
+
+## Related
+
+[Get Pick of the Day track record](/api-reference/endpoint/get-pick-of-the-day-archive) returns every past pick and the hit rate.
