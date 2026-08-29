@@ -7,6 +7,14 @@ rss: true
 
 This changelog tracks externally visible REST API changes only. Documentation-only edits are intentionally excluded.
 
+<Update label="August 29, 2026" description="Remote MCP carries Pick of the Day">
+  [`POST /api/v1/mcp`](/api-reference/endpoint/remote-mcp) adds two read-only tools: `get_pick_of_the_day` dispatches to [`GET /api/v1/pick-of-the-day`](/api-reference/endpoint/get-pick-of-the-day) and `get_pick_of_the_day_archive` to [`GET /api/v1/pick-of-the-day/archive`](/api-reference/endpoint/get-pick-of-the-day-archive). Both take no arguments. `tools/list` now returns 33 tools.
+
+  A tool error from any remote tool now carries the V1 `error.code`, `error.reason`, and `error.retry_at` when the handler set them. Before release, `get_pick_of_the_day` therefore reads `404 Not Found (not_found/pick_not_released): ... Not available before <retry_at>.` so an agent can schedule the next call instead of polling.
+
+  The stdio package `@0xinsider/mcp` 1.2.0 serves the same 33 tools. Additive: existing tools and REST routes are unchanged.
+</Update>
+
 <Update label="August 29, 2026" description="Pick of the Day 404 retry_at now accounts for the live selector rescan">
   [`GET /api/v1/pick-of-the-day`](/api-reference/endpoint/get-pick-of-the-day) changes how `error.retry_at` and `Retry-After` are chosen on `404 pick_not_released`.
 
