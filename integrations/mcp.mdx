@@ -1,12 +1,12 @@
 ---
 title: "Local MCP Server"
-description: "Run @0xinsider/mcp over stdio and give an AI client the 31 read-only tools."
+description: "Run @0xinsider/mcp over stdio and give an AI client the 33 read-only tools."
 ---
 
 [`@0xinsider/mcp`](https://www.npmjs.com/package/@0xinsider/mcp) runs a local Model Context Protocol server over stdio. Use it when Claude Code, Cursor, Codex, Gemini CLI, or another stdio client needs 0xinsider data.
 
 <Note>
-  A hosted agent that cannot run a local process can use [Remote MCP](/api-reference/endpoint/remote-mcp) at `POST /api/v1/mcp` instead. Both transports expose the same 31 tools and share the same rate limits.
+  A hosted agent that cannot run a local process can use [Remote MCP](/api-reference/endpoint/remote-mcp) at `POST /api/v1/mcp` instead. Both transports expose the same 33 tools and share the same rate limits.
 </Note>
 
 ## Install with init
@@ -104,7 +104,7 @@ The package installs `0xinsider` and the alias `0xinsider-mcp`. Both run the sam
 
 ## Use the tools
 
-The server exposes 31 read-only tools from the same catalog as Remote MCP. It cannot place trades or write data.
+The server exposes 33 read-only tools from the same catalog as Remote MCP. It cannot place trades or write data.
 
 | Group | Tools |
 |---|---|
@@ -115,6 +115,7 @@ The server exposes 31 read-only tools from the same catalog as Remote MCP. It ca
 | Reports | `get_report`, `get_daily_report_snapshot`, `get_weekly_report_snapshot`, `get_monthly_report_snapshot` |
 | Webhooks | `list_webhooks`, `get_webhook` |
 | Content and platforms | `search_content`, `get_platforms` |
+| Picks | `get_pick_of_the_day`, `get_pick_of_the_day_archive` |
 
 `get_smart_money_flows` is a deprecated alias of `get_sharp_money_flows`. Webhook create, update, delete, verify, and rotate operations are not tools.
 
